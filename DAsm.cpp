@@ -354,7 +354,7 @@ namespace DAsm{
                 if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
                     std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
                     second.erase(remove_if(second.begin(), second.end(),
-                                           [](char x){return std::(x);}), second.end());
+                                           [](char x){return std::isspace(x,std::locale());}), second.end());
                     
                     final_split_list.push_back(second);
                     is_quote_list.push_back(false);
@@ -733,7 +733,7 @@ namespace DAsm{
     }
     //Returns length of program so far, in words
     unsigned int    Program::GetLength(){
-        unsigned int result;
+        unsigned int result = 0;
         for(auto && c : mChunks)
             result += c.GetLength();
         return result;
@@ -968,4 +968,3 @@ namespace DAsm{
     }
     
 }
-
