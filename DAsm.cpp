@@ -154,7 +154,7 @@ unsigned int    Instruction::GetLength(){
 
 //Parses the A or B argument of an instruction
 word    Instruction::ParseArg(std::string source, bool isA){
-    source = replaceString(source, "-","\\+-");
+    source = replaceString(source, "-","+-");
 
     //We'll need the original source's case later for labels
     std::string source_upper = source;
@@ -187,7 +187,8 @@ word    Instruction::ParseArg(std::string source, bool isA){
     while(parts.size()){
         //Grab part and set substring pointer (so we can get case-sensitive version if needed)
         std::string str_part = parts.front();
-        substr_start += str_part.size() + 1;
+
+
         parts.pop_front();
         //We can only have register per operand
         if(!have_register){
@@ -299,6 +300,9 @@ word    Instruction::ParseArg(std::string source, bool isA){
             }
         }
         increment = true; //Any further constants will need to increment the word
+        substr_start += str_part.size();
+        if(str_part.find("-")==std::string::npos)
+            substr_start+=1;
     }
     return ret_word;
 }
@@ -826,6 +830,13 @@ int    Program::Evaluate(std::string expression){
         return result;
 
     //Not a number, see if it's a label/define
+
+
+    //If ignoring label case, everything is uppercase
+    if(mIgnoreLabelCase){
+        std::transform(expression.begin(), expression.end(), expression.begin(), ::toupper);
+    }
+
     for(auto&& v : mDefineValues)
         if(expression == v.label)
             return v.value;
