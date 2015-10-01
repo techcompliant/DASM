@@ -7,12 +7,14 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
 #include <iterator>
 #include <iomanip>
 #include <sstream>
 #include <regex>
 #include <algorithm>
 #include <iomanip>
+#include <functional>
 
 #include "DAsm.h"
 
@@ -145,7 +147,7 @@ unsigned int    Instruction::GetLength(){
 
 //Parses the A or B argument of an instruction
 word    Instruction::ParseArg(std::string source, bool isA){
-    source = replaceString(source, "-","+-");
+    source = replaceString(source, "-","\\+-");
 
     //We'll need the original source's case later for labels
     std::string source_upper = source;
@@ -178,8 +180,7 @@ word    Instruction::ParseArg(std::string source, bool isA){
     while(parts.size()){
         //Grab part and set substring pointer (so we can get case-sensitive version if needed)
         std::string str_part = parts.front();
-
-
+        substr_start += str_part.size() + 1;
         parts.pop_front();
         //We can only have register per operand
         if(!have_register){
@@ -291,9 +292,6 @@ word    Instruction::ParseArg(std::string source, bool isA){
             }
         }
         increment = true; //Any further constants will need to increment the word
-        substr_start += str_part.size();
-        if(str_part.find("-")==std::string::npos)
-            substr_start+=1;
     }
     return ret_word;
 }
@@ -352,7 +350,7 @@ void    Instruction::LoadSource(std::string source, unsigned int recursion_count
             if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
                 std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
                 second.erase(remove_if(second.begin(), second.end(),
-                        [](char x){return std::isspace(x);}), second.end());
+                                       [](char x){return std::isspace(x,std::locale());}), second.end());
 
                 final_split_list.push_back(second);
                 is_quote_list.push_back(false);
@@ -362,7 +360,7 @@ void    Instruction::LoadSource(std::string source, unsigned int recursion_count
 
         for(auto&& i : comma_split_list)//Cleanup any stray spaces
             i.erase(remove_if(i.begin(), i.end(),
-                    [](char x){return std::isspace(x);}), i.end());
+                    [](char x){return std::isspace(x,std::locale());}), i.end());
 
         copy_if(comma_split_list.begin(), comma_split_list.end(),
                 back_inserter(final_split_list),
@@ -380,7 +378,7 @@ void    Instruction::LoadSource(std::string source, unsigned int recursion_count
 
     std::string first_str = *final_split_list.begin();
     first_str.erase(remove_if(first_str.begin(), first_str.end(),
-                    [](char x){return std::isspace(x);}), first_str.end());
+                    [](char x){return std::isspace(x,std::locale());}), first_str.end());
 
     if(first_str[0]==':'||first_str[first_str.size()-1]==':'){
 
@@ -681,7 +679,7 @@ void    Program::AddMacro(std::string nMacro){
     std::string keyword = inOutParts.front();
 
     keyword.erase(remove_if(keyword.begin(), keyword.end(),
-                        [](char x){return std::isspace(x);}), keyword.end());
+                        [](char x){return std::isspace(x,std::locale());}), keyword.end());
     transform(keyword.begin(), keyword.end(), keyword.begin(), ::toupper);
 
     inOutParts.pop_front();
@@ -731,7 +729,7 @@ void    Program::AddIncrementTarget(std::string nExpression, word* nTarget){
 }
 //Returns length of program so far, in words
 unsigned int    Program::GetLength(){
-    unsigned int result;
+    unsigned int result = 0;
     for(auto && c : mChunks)
         result += c.GetLength();
     return result;
@@ -821,13 +819,6 @@ int    Program::Evaluate(std::string expression){
         return result;
 
     //Not a number, see if it's a label/define
-
-
-    //If ignoring label case, everything is uppercase
-    if(mIgnoreLabelCase){
-        std::transform(expression.begin(), expression.end(), expression.begin(), ::toupper);
-    }
-
     for(auto&& v : mDefineValues)
         if(expression == v.label)
             return v.value;
@@ -966,3 +957,4 @@ word*   Program::ToBlock(unsigned long maxSize, unsigned long& programSize){
 }
 
 }
+
