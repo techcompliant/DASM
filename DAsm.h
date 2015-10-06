@@ -150,7 +150,7 @@ class   Program{
         ProgramChunk*                       mCurChunk;
 
         bool                                mIgnoreLabelCase; //When true, all labels are converted to uppercase
-
+        bool                                mArrangeChunks;//When true, .orgs control actual position of code in output
 };
 
 }

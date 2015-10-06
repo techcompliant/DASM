@@ -10,9 +10,8 @@ std::string source =
 ";SPI Spy\n\
 ;Author: Alfie275\n\
 \n\
+\n\
 ;SPI echo program\n\
-\n\
-\n\
 org 1000\n\
 macro .reserve = fill 0, %0\n\
 .reserve 10\n\
