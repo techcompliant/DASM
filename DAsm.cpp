@@ -594,8 +594,8 @@ namespace DAsm{
         Instruction::mOpcodes.push_back(str_opcode("IFE", 0x12));
         Instruction::mOpcodes.push_back(str_opcode("IFN", 0x13));
         Instruction::mOpcodes.push_back(str_opcode("IFG", 0x14));
-        Instruction::mOpcodes.push_back(str_opcode("IFL", 0x15));
-        Instruction::mOpcodes.push_back(str_opcode("IFA", 0x16));
+        Instruction::mOpcodes.push_back(str_opcode("IFA", 0x15));
+        Instruction::mOpcodes.push_back(str_opcode("IFL", 0x16));
         Instruction::mOpcodes.push_back(str_opcode("IFU", 0x17));
         Instruction::mOpcodes.push_back(str_opcode("ADX", 0x1A));
         Instruction::mOpcodes.push_back(str_opcode("SBX", 0x1B));
