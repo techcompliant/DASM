@@ -702,6 +702,9 @@ namespace DAsm{
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
         mCurChunk = &(mChunks.back());
+        //Always start assembling at 0 unless otherwise specified.
+        mCurChunk->mHasTargetPos = true;
+        mCurChunk->mTargetPos = 0;
         
         //RET isn't an opcode, but it means this.
         AddMacro("RET=SET PC, POP");
