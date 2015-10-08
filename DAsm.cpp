@@ -140,6 +140,20 @@ namespace DAsm{
         return 0xFF;
     }
 
+    // Returns true of an opcode needs arguments, false otherwise
+    bool    Instruction::GetArgumentFlag(std::string str){
+        for(auto&& i : mOpcodes){
+            if(i.str == str)
+                return i.arguments;
+        }
+        for(auto&& i : mSpecialOpcodes){
+            if(i.str == str)
+                return i.arguments;
+        }
+        Error(std::string("Opcode not found: ").append(str));
+        return true;
+    }
+
     //Returns length of instruction in words
     unsigned int    Instruction::GetLength(){
         return mWords.size();
@@ -587,11 +601,13 @@ namespace DAsm{
         if(lOp==0x00){
             lOp = GetSpecialOpcode(first_str);
             lWord |= lOp << 5;
-            if(final_split_list.size()<1){
-                Error(first_str.append(std::string(" opcode requires an operand")));
-                return;
+            if(GetArgumentFlag(first_str)) {
+                if(final_split_list.size()<1){
+                    Error(first_str.append(std::string(" opcode requires an operand")));
+                    return;
+                }
+                lWord |= ParseArg(*final_split_list.begin(), true) << 10;
             }
-            lWord |= ParseArg(*final_split_list.begin(), true) << 10;
         }else{
             if(final_split_list.size()<2){
                 Error(first_str.append(std::string(" requires two operands")));
@@ -663,7 +679,7 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("INT", 0x08));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAG", 0x09));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAS", 0x0A));
-        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B, false));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAQ", 0x0C));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWN", 0x10));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWQ", 0x11));

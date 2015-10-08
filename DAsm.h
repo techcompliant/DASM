@@ -28,7 +28,8 @@ const unsigned int MAX_RECURSION = 20;
 struct  str_opcode{
     std::string  str;
     opcode  value;
-    str_opcode(std::string nStr, opcode nValue){str=nStr; value=nValue;}
+    bool arguments;
+    str_opcode(std::string nStr, opcode nValue, bool nArguments = true){str=nStr; value=nValue; arguments=nArguments;}
 };
 //Store words to be replaced with expression values
 struct  expression_target{
@@ -69,6 +70,7 @@ class   Instruction{
 
         opcode                              GetOpcode(std::string str);
         opcode                              GetSpecialOpcode(std::string str);
+        bool                                GetArgumentFlag(std::string str);
 
         void                                Error(std::string nError);
 
