@@ -796,8 +796,31 @@ namespace DAsm{
             }
             return result;
         }
-
-
+        
+        std::list<std::string> leftShiftParts;
+        splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
+        
+        if(leftShiftParts.size()>1){
+            result = Evaluate(leftShiftParts.front());
+            leftShiftParts.pop_front();
+            for(auto&& p: leftShiftParts){
+                result = result << Evaluate(p);
+            }
+            return result;
+        }
+        
+        std::list<std::string> rightShiftParts;
+        splitString(expression,">>",rightShiftParts,[](std::string str){return true;});
+        
+        if(rightShiftParts.size()>1){
+            result = Evaluate(rightShiftParts.front());
+            rightShiftParts.pop_front();
+            for(auto&& p: rightShiftParts){
+                result = result >> Evaluate(p);
+            }
+            return result;
+        }
+        
         std::list<std::string> multiplyParts;
         splitString(expression,"\\*",multiplyParts);
 
