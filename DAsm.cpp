@@ -479,6 +479,15 @@ namespace DAsm{
             Fill(value, amount);
             return;
         }
+        
+        if(first_str=="RESERVE"||first_str==".RESERVE"){
+            if(final_split_list.size()==0)
+                return;
+            
+            unsigned int amount = mProgram->Evaluate(final_split_list.front());
+            Fill(0, amount);
+            return;
+        }
         //Passes to macro system
         if(first_str=="FLAG"||first_str==".FLAG"){
             std::string flag_str = final_split_list.front();
