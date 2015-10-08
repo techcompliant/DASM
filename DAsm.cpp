@@ -332,41 +332,19 @@ namespace DAsm{
             std::regex split_semicolon(";");
             std::sregex_token_iterator remove_comment(part->begin(), part->end(), split_semicolon, -1);
             *part = remove_comment->str();//Grab only the first bit (others will be comment)
+            
+            std::list<std::string> token_list;
+            splitString(*part, "(\\s|\\t|,)", token_list);//Split around commas and space
 
-            std::list<std::string> comma_split_list;
-            splitString(*part, ",", comma_split_list);//Split around commas
-
-            if(comma_split_list.size() == 0){//Line is only comment
+            if(token_list.size() == 0){//Line is only comment
                 return;
             }
-
-            std::string first_str = *(comma_split_list.begin());
-
-            std::list<std::string> split_first;
-            splitString(first_str, "(\\s|\\t)+", split_first);//Split first string around spaces
-
-
-            if(split_first.size()){
-
-                final_split_list.push_back(split_first.front());
-                is_quote_list.push_back(false);
-
-                if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
-                    std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
-                    second.erase(remove_if(second.begin(), second.end(),
-                                           [](char x){return std::isspace(x,std::locale());}), second.end());
-
-                    final_split_list.push_back(second);
-                    is_quote_list.push_back(false);
-                }
-            }
-            comma_split_list.pop_front();
-
-            for(auto&& i : comma_split_list)//Cleanup any stray spaces
+            
+            for(auto&& i : token_list)//Cleanup any stray spaces
                 i.erase(remove_if(i.begin(), i.end(),
                                   [](char x){return std::isspace(x,std::locale());}), i.end());
-
-            copy_if(comma_split_list.begin(), comma_split_list.end(),
+            
+            copy_if(token_list.begin(), token_list.end(),
                     back_inserter(final_split_list),
                     [&](std::string str){
                         if(str.size()){
@@ -796,7 +774,7 @@ namespace DAsm{
             }
             return result;
         }
-        
+
         std::list<std::string> leftShiftParts;
         splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
         
@@ -808,7 +786,7 @@ namespace DAsm{
             }
             return result;
         }
-        
+
         std::list<std::string> rightShiftParts;
         splitString(expression,">>",rightShiftParts,[](std::string str){return true;});
         
