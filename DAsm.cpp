@@ -416,7 +416,48 @@ namespace DAsm{
             }
             return;
         }
-
+        
+        //null-terminated strings, one character per word
+        if(first_str=="ASCIIZ"||first_str==".ASCIIZ"){
+            while(final_split_list.size()){
+                std::string cur_str = *final_split_list.begin();
+                bool is_quote = *is_quote_list.begin();
+                
+                final_split_list.pop_front();
+                is_quote_list.pop_front();
+                
+                if(is_quote){//Quotes get turned into character values
+                    for(auto c = cur_str.begin(); c!= cur_str.end(); ++c){
+                        if(*c == '\\'){
+                            if(next(c) != cur_str.end()){
+                                if(*next(c) == '\\'){
+                                    mWords.push_back(word('\\'));
+                                    ++c;
+                                    continue;
+                                }
+                            }
+                        }else{
+                            mWords.push_back(word(*c));
+                        }
+                    }
+                }else{//Otherwise interpret as values/labels
+                    bool number;
+                    int value = getNumber(cur_str,number);
+                    if(number){
+                        mWords.push_back(word(value));
+                        continue;
+                    }else{
+                        mWords.push_back(word(0x1234));
+                        mProgram->AddExpressionTarget(cur_str, &(mWords.back()));
+                    }
+                }
+                
+                // Add the null terminator
+                mWords.push_back(word(0));
+            }
+            return;
+        }
+        
         //Handles the org stuff, splitting code into chunks
         if(first_str=="ORG"||first_str==".ORG"){
             if(final_split_list.size()==0){
