@@ -163,7 +163,6 @@ namespace DAsm{
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
 
-        unsigned int substr_start = 0;
         bool dereference = false;
 
         if(source[0]=='['){
@@ -174,14 +173,9 @@ namespace DAsm{
             dereference = true;
         }
 
-        //We'll need the original source's case later for labels
-        //Only change case after all other transformations have happened
-        std::string source_upper = source;
-        transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
-
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
-        splitString(source_upper, "\\+", parts);
+        splitString(source, "\\+", parts);
 
         word ret_word = 0xFFFF;
 
@@ -195,6 +189,10 @@ namespace DAsm{
             //Grab part and set substring pointer (so we can get case-sensitive version if needed)
             std::string str_part = parts.front();
 
+            //Convert to upper case, but keep the original around
+            std::string str_part_upper = str_part;
+            transform(str_part_upper.begin(), str_part_upper.end(), str_part_upper.begin(), ::toupper);
+
 
             parts.pop_front();
             //We can only have register per operand
@@ -203,7 +201,7 @@ namespace DAsm{
                     Error(std::string("Previous argument disallows register offset."));
                 }
                 for(auto&& r : mReg){ //Check to see if this part is a register
-                    if(r.str == str_part){
+                    if(r.str == str_part_upper){
                         ret_word = r.value;
                         if(parts.size()||increment){//If there were, or will be, constants
                             if(dereference)
@@ -218,17 +216,13 @@ namespace DAsm{
                         break;
                     }
                 }
-                if(have_register) {
-                    substr_start += str_part.size();
-                    if(str_part.find("-")==std::string::npos)
-                        substr_start+=1;
+                if(have_register)
                     continue;
-                }
             }
 
             bool singular = false;//Singulars will allow neither register nor constant offset
 
-            if(str_part=="SP"){
+            if(str_part_upper=="SP"){
                 have_SP = true;
                 if(dereference){
                     if(have_register)//You cannot offset SP with a register
@@ -237,12 +231,7 @@ namespace DAsm{
                         ret_word = 0x1A;
                     else
                         ret_word = 0x19;
-                        
-                    substr_start += str_part.size();
-                    if(str_part.find("-")==std::string::npos)
-                        substr_start+=1;
                     continue;
-                    
                 }else{//When used as literal you cannot offset
                     ret_word = 0x1B;
                     singular = true;
@@ -250,34 +239,34 @@ namespace DAsm{
             }
 
             //These are the singulars
-            if( (str_part == "PUSH" && !isA) || (str_part == "POP" && isA)){
+            if( (str_part_upper == "PUSH" && !isA) || (str_part_upper == "POP" && isA)){
                 singular = true;
                 ret_word = 0x18;
             }
-            if(str_part == "PEEK"){
+            if(str_part_upper == "PEEK"){
                 ret_word = 0x19;
                 singular = true;
             }
-            if(str_part == "PC"){
+            if(str_part_upper == "PC"){
                 singular = true;
                 ret_word = 0x1C;
             }
-            if(str_part == "EX"){
+            if(str_part_upper == "EX"){
                 singular = true;
                 ret_word = 0x1D;
             }
 
             if(singular){
                 if(increment || have_register || parts.size())//If there are other parts then throw error
-                    Error(str_part.append(std::string(" does not support offsetting")));
+                    Error(str_part_upper.append(std::string(" does not support offsetting")));
                 if(dereference)
-                    Error(str_part.append(std::string(" does not support dereferencing")));
+                    Error(str_part_upper.append(std::string(" does not support dereferencing")));
                 break;
             }
 
             //See if this is a number
             bool number;
-            int value = getNumber(str_part, number);
+            int value = getNumber(str_part_upper, number);
             if(number){
 
 
@@ -304,10 +293,10 @@ namespace DAsm{
                 }
             }else{//Not a number, assume it's a label
                 if(increment)
-                    mProgram->AddIncrementTarget(source.substr(substr_start,str_part.size()), &mWords.back());
+                    mProgram->AddIncrementTarget(str_part, &mWords.back());
                 else{
                     mWords.push_back(word(0x1234));
-                    mProgram->AddExpressionTarget(source.substr(substr_start,str_part.size()), &(mWords.back()));
+                    mProgram->AddExpressionTarget(str_part, &(mWords.back()));
                 }
                 if(!have_register){
                     if(dereference)
@@ -317,11 +306,6 @@ namespace DAsm{
                 }
             }
             increment = true; //Any further constants will need to increment the word
-            
-            // Consume the source characters represented by this part.
-            substr_start += str_part.size();
-            if(str_part.find("-")==std::string::npos)
-                substr_start+=1;
         }
         return ret_word;
     }
