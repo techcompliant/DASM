@@ -508,7 +508,7 @@ namespace DAsm{
 
 
 
-            word value = mProgram->Evaluate(final_split_list.front());
+            int value = mProgram->Evaluate(final_split_list.front());
 
             mProgram->AddDefine(cur_str, value);
 
@@ -740,7 +740,7 @@ namespace DAsm{
     }
 
     //Define label value
-    void    Program::AddDefine(std::string nLabel,word nValue){
+    void    Program::AddDefine(std::string nLabel,int nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         mDefineValues.push_back(label_value(nLabel, nValue));
@@ -1009,17 +1009,27 @@ namespace DAsm{
                     }
                 }
             }
-
-            //Update label positions from relative to absolute
-            for(auto&& o : mOrdered){
-
-                for(auto && l : o->mLabelValues){
-                    l.value += o->mTargetPos;
-                }
-            }
         }else{
+            //Chunks with target positions get assembled as if they are there.
+            //Chunks with no target positions get assigned their actual positions.
+            //This is useful if your code moves itself around.
+            int start = 0;
             for(auto&& c : mChunks){
+                if(!c.mHasTargetPos){
+                    //Tell it it is where it actually is.
+                    c.mTargetPos = start;
+                    c.mHasTargetPos = true;
+                }
                 mOrdered.push_back(&c);
+                start += c.GetLength();
+            }
+        }
+        
+        //Update label positions from relative to absolute
+        //This needs to happen whether chunks are arranged or not.
+        for(auto&& o : mOrdered){
+            for(auto && l : o->mLabelValues){
+                l.value += o->mTargetPos;
             }
         }
 

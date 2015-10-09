@@ -39,10 +39,11 @@ struct  expression_target{
 };
 
 //Store values of labels
+//Stores int-width values for extra-long defines
 struct label_value{
     std::string label;
-    word    value;
-    label_value(std::string nLabel, word nValue){label=nLabel; value=nValue;}
+    int    value;
+    label_value(std::string nLabel, int nValue){label=nLabel; value=nValue;}
 };
 
 struct macro{
@@ -117,7 +118,7 @@ class   Program{
         void                                AddIncrementTarget(std::string nExpression,word* nTarget);
 
         void                                AddLabelValue(std::string nLabel, word nValue);
-        void                                AddDefine(std::string nLabel, word nValue);
+        void                                AddDefine(std::string nLabel, int nValue);
 
         unsigned int                        GetLength();
         unsigned int                        mLength;
