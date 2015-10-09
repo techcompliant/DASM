@@ -119,6 +119,7 @@ class   Program{
 
         void                                AddLabelValue(std::string nLabel, word nValue);
         void                                AddDefine(std::string nLabel, int nValue);
+        std::string                         GlobalizeLabels(std::string nExpression);
 
         unsigned int                        GetLength();
         unsigned int                        mLength;
@@ -141,6 +142,8 @@ class   Program{
 
         std::list<ProgramChunk>             mChunks;
         std::list<ProgramChunk*>            mOrdered;
+        
+        std::string                         mGlobalLabel;
 
         std::list<label_value>              mDefineValues;
 

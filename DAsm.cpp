@@ -373,11 +373,35 @@ namespace DAsm{
                                   [](char x){return std::isspace(x,std::locale());}), first_str.end());
 
         if(first_str[0]==':'||first_str[first_str.size()-1]==':'){
-
+        
+            std::string label;
             if(first_str[0]==':')
-                mProgram->AddLabelValue(first_str.substr(1), word(mProgram->mCurChunk->GetLength()));
+                label = first_str.substr(1);
             else
-                mProgram->AddLabelValue(first_str.substr(0,first_str.size()-1), word(mProgram->mCurChunk->GetLength()));
+                label=first_str.substr(0,first_str.size()-1);
+                
+            if(label.size() == 0){
+                Error(std::string("Empty label: ").append(source));
+                return;
+            }
+            
+            if(label.substr(1).find('.')!=std::string::npos){
+                Error(std::string("Illegal label-internal '.': ").append(source));
+                return;
+            }
+            
+            //Local labels (beginning with .) get the last global label name (if any) prepended.
+            //You can re-use the same local label.
+            //TODO: because of the way labels are fixed up in expressions, you
+            //can't refer to other global labels' local labels yet.
+            if(label[0] == '.'){
+                label = mProgram->mGlobalLabel + label;
+            }else{
+                mProgram->mGlobalLabel = label;
+            }
+
+            mProgram->AddLabelValue(label, word(mProgram->mCurChunk->GetLength()));
+
             //If there is aside from the label, we'll recursively parse it
             if(final_split_list.size()>1){
                 mProgram->mInstructions->emplace_back(source.substr(first_str.size()+source.find(first_str)));
@@ -721,14 +745,14 @@ namespace DAsm{
     void    Program::AddExpressionTarget(std::string nExpression,word* nTarget){
         if(mIgnoreLabelCase)
             transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
-        mExpressionTargets.push_back(expression_target(nExpression, nTarget));
+        mExpressionTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
     //Add word to be replaced with define later
     void    Program::AddDefineOnlyTarget(std::string nExpression,word* nTarget){
         if(mIgnoreLabelCase)
             transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
-        mDefineOnlyTargets.push_back(expression_target(nExpression, nTarget));
+        mDefineOnlyTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
 
@@ -744,6 +768,20 @@ namespace DAsm{
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         mDefineValues.push_back(label_value(nLabel, nValue));
+    }
+    
+    //Rewrite any local labels (beginning with .) in an expression to global ones
+    //Uses the currently set global label, if any
+    std::string Program::GlobalizeLabels(std::string nExpression){
+        std::string globalizer = mGlobalLabel + ".";
+        
+        if(mIgnoreLabelCase)
+            transform(globalizer.begin(), globalizer.end(), globalizer.begin(), ::toupper);
+        
+        //No .s should appear in expressions except at the start of labels.
+        //TODO: maybe associate a scope with expressions instead of just having
+        //them be strings so this can be more robust.
+        return replaceString(nExpression, "\\.", globalizer);
     }
 
 
@@ -804,7 +842,7 @@ namespace DAsm{
 
     //Add word to be incremented by expression
     void    Program::AddIncrementTarget(std::string nExpression, word* nTarget){
-        mIncrementTargets.push_back(expression_target( nExpression, nTarget));
+        mIncrementTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
     //Returns length of program so far, in words
     unsigned int    Program::GetLength(){
