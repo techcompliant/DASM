@@ -163,21 +163,21 @@ namespace DAsm{
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
 
-        //We'll need the original source's case later for labels
-        std::string source_upper = source;
-        transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
-
         unsigned int substr_start = 0;
         bool dereference = false;
 
-        if(source_upper[0]=='['){
+        if(source[0]=='['){
 
-            source_upper.erase(remove(source_upper.begin(), source_upper.end(), '['), source_upper.end());
-            source_upper.erase(remove(source_upper.begin(), source_upper.end(), ']'), source_upper.end());
+            source.erase(remove(source.begin(), source.end(), '['), source.end());
+            source.erase(remove(source.begin(), source.end(), ']'), source.end());
 
             dereference = true;
-            substr_start = 1;
         }
+
+        //We'll need the original source's case later for labels
+        //Only change case after all other transformations have happened
+        std::string source_upper = source;
+        transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
 
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
@@ -218,7 +218,12 @@ namespace DAsm{
                         break;
                     }
                 }
-                if(have_register)continue;
+                if(have_register) {
+                    substr_start += str_part.size();
+                    if(str_part.find("-")==std::string::npos)
+                        substr_start+=1;
+                    continue;
+                }
             }
 
             bool singular = false;//Singulars will allow neither register nor constant offset
@@ -232,7 +237,12 @@ namespace DAsm{
                         ret_word = 0x1A;
                     else
                         ret_word = 0x19;
+                        
+                    substr_start += str_part.size();
+                    if(str_part.find("-")==std::string::npos)
+                        substr_start+=1;
                     continue;
+                    
                 }else{//When used as literal you cannot offset
                     ret_word = 0x1B;
                     singular = true;
@@ -307,6 +317,8 @@ namespace DAsm{
                 }
             }
             increment = true; //Any further constants will need to increment the word
+            
+            // Consume the source characters represented by this part.
             substr_start += str_part.size();
             if(str_part.find("-")==std::string::npos)
                 substr_start+=1;
@@ -697,7 +709,7 @@ namespace DAsm{
         Instruction::mProgram = this;
 
         mIgnoreLabelCase = true;
-        mArrangeChunks = true;
+        mArrangeChunks = false;
 
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
@@ -821,6 +833,7 @@ namespace DAsm{
 
     //Evaluates an expression
     int    Program::Evaluate(std::string expression){
+    
         if(expression.size()==0)
             return 0;
         //Basically we just go through each operator in order
