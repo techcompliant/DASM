@@ -28,7 +28,8 @@ const unsigned int MAX_RECURSION = 20;
 struct  str_opcode{
     std::string  str;
     opcode  value;
-    str_opcode(std::string nStr, opcode nValue){str=nStr; value=nValue;}
+    bool arguments;
+    str_opcode(std::string nStr, opcode nValue, bool nArguments = true){str=nStr; value=nValue; arguments=nArguments;}
 };
 //Store words to be replaced with expression values
 struct  expression_target{
@@ -38,10 +39,11 @@ struct  expression_target{
 };
 
 //Store values of labels
+//Stores int-width values for extra-long defines
 struct label_value{
     std::string label;
-    word    value;
-    label_value(std::string nLabel, word nValue){label=nLabel; value=nValue;}
+    int    value;
+    label_value(std::string nLabel, int nValue){label=nLabel; value=nValue;}
 };
 
 struct macro{
@@ -69,6 +71,7 @@ class   Instruction{
 
         opcode                              GetOpcode(std::string str);
         opcode                              GetSpecialOpcode(std::string str);
+        bool                                GetArgumentFlag(std::string str);
 
         void                                Error(std::string nError);
 
@@ -115,7 +118,8 @@ class   Program{
         void                                AddIncrementTarget(std::string nExpression,word* nTarget);
 
         void                                AddLabelValue(std::string nLabel, word nValue);
-        void                                AddDefine(std::string nLabel, word nValue);
+        void                                AddDefine(std::string nLabel, int nValue);
+        std::string                         GlobalizeLabels(std::string nExpression);
 
         unsigned int                        GetLength();
         unsigned int                        mLength;
@@ -138,6 +142,8 @@ class   Program{
 
         std::list<ProgramChunk>             mChunks;
         std::list<ProgramChunk*>            mOrdered;
+        
+        std::string                         mGlobalLabel;
 
         std::list<label_value>              mDefineValues;
 

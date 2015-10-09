@@ -140,6 +140,20 @@ namespace DAsm{
         return 0xFF;
     }
 
+    // Returns true of an opcode needs arguments, false otherwise
+    bool    Instruction::GetArgumentFlag(std::string str){
+        for(auto&& i : mOpcodes){
+            if(i.str == str)
+                return i.arguments;
+        }
+        for(auto&& i : mSpecialOpcodes){
+            if(i.str == str)
+                return i.arguments;
+        }
+        Error(std::string("Opcode not found: ").append(str));
+        return true;
+    }
+
     //Returns length of instruction in words
     unsigned int    Instruction::GetLength(){
         return mWords.size();
@@ -149,25 +163,19 @@ namespace DAsm{
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
 
-        //We'll need the original source's case later for labels
-        std::string source_upper = source;
-        transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
-
-        unsigned int substr_start = 0;
         bool dereference = false;
 
-        if(source_upper[0]=='['){
+        if(source[0]=='['){
 
-            source_upper.erase(remove(source_upper.begin(), source_upper.end(), '['), source_upper.end());
-            source_upper.erase(remove(source_upper.begin(), source_upper.end(), ']'), source_upper.end());
+            source.erase(remove(source.begin(), source.end(), '['), source.end());
+            source.erase(remove(source.begin(), source.end(), ']'), source.end());
 
             dereference = true;
-            substr_start = 1;
         }
 
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
-        splitString(source_upper, "\\+", parts);
+        splitString(source, "\\+", parts);
 
         word ret_word = 0xFFFF;
 
@@ -181,6 +189,10 @@ namespace DAsm{
             //Grab part and set substring pointer (so we can get case-sensitive version if needed)
             std::string str_part = parts.front();
 
+            //Convert to upper case, but keep the original around
+            std::string str_part_upper = str_part;
+            transform(str_part_upper.begin(), str_part_upper.end(), str_part_upper.begin(), ::toupper);
+
 
             parts.pop_front();
             //We can only have register per operand
@@ -189,7 +201,7 @@ namespace DAsm{
                     Error(std::string("Previous argument disallows register offset."));
                 }
                 for(auto&& r : mReg){ //Check to see if this part is a register
-                    if(r.str == str_part){
+                    if(r.str == str_part_upper){
                         ret_word = r.value;
                         if(parts.size()||increment){//If there were, or will be, constants
                             if(dereference)
@@ -204,12 +216,13 @@ namespace DAsm{
                         break;
                     }
                 }
-                if(have_register)continue;
+                if(have_register)
+                    continue;
             }
 
             bool singular = false;//Singulars will allow neither register nor constant offset
 
-            if(str_part=="SP"){
+            if(str_part_upper=="SP"){
                 have_SP = true;
                 if(dereference){
                     if(have_register)//You cannot offset SP with a register
@@ -226,34 +239,34 @@ namespace DAsm{
             }
 
             //These are the singulars
-            if( (str_part == "PUSH" && !isA) || (str_part == "POP" && isA)){
+            if( (str_part_upper == "PUSH" && !isA) || (str_part_upper == "POP" && isA)){
                 singular = true;
                 ret_word = 0x18;
             }
-            if(str_part == "PEEK"){
+            if(str_part_upper == "PEEK"){
                 ret_word = 0x19;
                 singular = true;
             }
-            if(str_part == "PC"){
+            if(str_part_upper == "PC"){
                 singular = true;
                 ret_word = 0x1C;
             }
-            if(str_part == "EX"){
+            if(str_part_upper == "EX"){
                 singular = true;
                 ret_word = 0x1D;
             }
 
             if(singular){
                 if(increment || have_register || parts.size())//If there are other parts then throw error
-                    Error(str_part.append(std::string(" does not support offsetting")));
+                    Error(str_part_upper.append(std::string(" does not support offsetting")));
                 if(dereference)
-                    Error(str_part.append(std::string(" does not support dereferencing")));
+                    Error(str_part_upper.append(std::string(" does not support dereferencing")));
                 break;
             }
 
             //See if this is a number
             bool number;
-            int value = getNumber(str_part, number);
+            int value = getNumber(str_part_upper, number);
             if(number){
 
 
@@ -280,10 +293,10 @@ namespace DAsm{
                 }
             }else{//Not a number, assume it's a label
                 if(increment)
-                    mProgram->AddIncrementTarget(source.substr(substr_start,str_part.size()), &mWords.back());
+                    mProgram->AddIncrementTarget(str_part, &mWords.back());
                 else{
                     mWords.push_back(word(0x1234));
-                    mProgram->AddExpressionTarget(source.substr(substr_start,str_part.size()), &(mWords.back()));
+                    mProgram->AddExpressionTarget(str_part, &(mWords.back()));
                 }
                 if(!have_register){
                     if(dereference)
@@ -293,9 +306,6 @@ namespace DAsm{
                 }
             }
             increment = true; //Any further constants will need to increment the word
-            substr_start += str_part.size();
-            if(str_part.find("-")==std::string::npos)
-                substr_start+=1;
         }
         return ret_word;
     }
@@ -332,41 +342,19 @@ namespace DAsm{
             std::regex split_semicolon(";");
             std::sregex_token_iterator remove_comment(part->begin(), part->end(), split_semicolon, -1);
             *part = remove_comment->str();//Grab only the first bit (others will be comment)
+            
+            std::list<std::string> token_list;
+            splitString(*part, "(\\s|\\t|,)", token_list);//Split around commas and space
 
-            std::list<std::string> comma_split_list;
-            splitString(*part, ",", comma_split_list);//Split around commas
-
-            if(comma_split_list.size() == 0){//Line is only comment
+            if(token_list.size() == 0){//Line is only comment
                 return;
             }
-
-            std::string first_str = *(comma_split_list.begin());
-
-            std::list<std::string> split_first;
-            splitString(first_str, "(\\s|\\t)+", split_first);//Split first string around spaces
-
-
-            if(split_first.size()){
-
-                final_split_list.push_back(split_first.front());
-                is_quote_list.push_back(false);
-
-                if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
-                    std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
-                    second.erase(remove_if(second.begin(), second.end(),
-                                           [](char x){return std::isspace(x,std::locale());}), second.end());
-
-                    final_split_list.push_back(second);
-                    is_quote_list.push_back(false);
-                }
-            }
-            comma_split_list.pop_front();
-
-            for(auto&& i : comma_split_list)//Cleanup any stray spaces
+            
+            for(auto&& i : token_list)//Cleanup any stray spaces
                 i.erase(remove_if(i.begin(), i.end(),
                                   [](char x){return std::isspace(x,std::locale());}), i.end());
-
-            copy_if(comma_split_list.begin(), comma_split_list.end(),
+            
+            copy_if(token_list.begin(), token_list.end(),
                     back_inserter(final_split_list),
                     [&](std::string str){
                         if(str.size()){
@@ -385,11 +373,35 @@ namespace DAsm{
                                   [](char x){return std::isspace(x,std::locale());}), first_str.end());
 
         if(first_str[0]==':'||first_str[first_str.size()-1]==':'){
-
+        
+            std::string label;
             if(first_str[0]==':')
-                mProgram->AddLabelValue(first_str.substr(1), word(mProgram->mCurChunk->GetLength()));
+                label = first_str.substr(1);
             else
-                mProgram->AddLabelValue(first_str.substr(0,first_str.size()-1), word(mProgram->mCurChunk->GetLength()));
+                label=first_str.substr(0,first_str.size()-1);
+                
+            if(label.size() == 0){
+                Error(std::string("Empty label: ").append(source));
+                return;
+            }
+            
+            if(label.substr(1).find('.')!=std::string::npos){
+                Error(std::string("Illegal label-internal '.': ").append(source));
+                return;
+            }
+            
+            //Local labels (beginning with .) get the last global label name (if any) prepended.
+            //You can re-use the same local label.
+            //TODO: because of the way labels are fixed up in expressions, you
+            //can't refer to other global labels' local labels yet.
+            if(label[0] == '.'){
+                label = mProgram->mGlobalLabel + label;
+            }else{
+                mProgram->mGlobalLabel = label;
+            }
+
+            mProgram->AddLabelValue(label, word(mProgram->mCurChunk->GetLength()));
+
             //If there is aside from the label, we'll recursively parse it
             if(final_split_list.size()>1){
                 mProgram->mInstructions->emplace_back(source.substr(first_str.size()+source.find(first_str)));
@@ -438,7 +450,48 @@ namespace DAsm{
             }
             return;
         }
-
+        
+        //null-terminated strings, one character per word
+        if(first_str=="ASCIIZ"||first_str==".ASCIIZ"){
+            while(final_split_list.size()){
+                std::string cur_str = *final_split_list.begin();
+                bool is_quote = *is_quote_list.begin();
+                
+                final_split_list.pop_front();
+                is_quote_list.pop_front();
+                
+                if(is_quote){//Quotes get turned into character values
+                    for(auto c = cur_str.begin(); c!= cur_str.end(); ++c){
+                        if(*c == '\\'){
+                            if(next(c) != cur_str.end()){
+                                if(*next(c) == '\\'){
+                                    mWords.push_back(word('\\'));
+                                    ++c;
+                                    continue;
+                                }
+                            }
+                        }else{
+                            mWords.push_back(word(*c));
+                        }
+                    }
+                }else{//Otherwise interpret as values/labels
+                    bool number;
+                    int value = getNumber(cur_str,number);
+                    if(number){
+                        mWords.push_back(word(value));
+                        continue;
+                    }else{
+                        mWords.push_back(word(0x1234));
+                        mProgram->AddExpressionTarget(cur_str, &(mWords.back()));
+                    }
+                }
+                
+                // Add the null terminator
+                mWords.push_back(word(0));
+            }
+            return;
+        }
+        
         //Handles the org stuff, splitting code into chunks
         if(first_str=="ORG"||first_str==".ORG"){
             if(final_split_list.size()==0){
@@ -479,7 +532,7 @@ namespace DAsm{
 
 
 
-            word value = mProgram->Evaluate(final_split_list.front());
+            int value = mProgram->Evaluate(final_split_list.front());
 
             mProgram->AddDefine(cur_str, value);
 
@@ -499,6 +552,15 @@ namespace DAsm{
             final_split_list.pop_front();
             unsigned int amount = mProgram->Evaluate(final_split_list.front());
             Fill(value, amount);
+            return;
+        }
+        
+        if(first_str=="RESERVE"||first_str==".RESERVE"){
+            if(final_split_list.size()==0)
+                return;
+            
+            unsigned int amount = mProgram->Evaluate(final_split_list.front());
+            Fill(0, amount);
             return;
         }
         //Passes to macro system
@@ -559,11 +621,13 @@ namespace DAsm{
         if(lOp==0x00){
             lOp = GetSpecialOpcode(first_str);
             lWord |= lOp << 5;
-            if(final_split_list.size()<1){
-                Error(first_str.append(std::string(" opcode requires an operand")));
-                return;
+            if(GetArgumentFlag(first_str)) {
+                if(final_split_list.size()<1){
+                    Error(first_str.append(std::string(" opcode requires an operand")));
+                    return;
+                }
+                lWord |= ParseArg(*final_split_list.begin(), true) << 10;
             }
-            lWord |= ParseArg(*final_split_list.begin(), true) << 10;
         }else{
             if(final_split_list.size()<2){
                 Error(first_str.append(std::string(" requires two operands")));
@@ -635,7 +699,7 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("INT", 0x08));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAG", 0x09));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAS", 0x0A));
-        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B, false));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAQ", 0x0C));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWN", 0x10));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWQ", 0x11));
@@ -653,11 +717,17 @@ namespace DAsm{
         Instruction::mProgram = this;
 
         mIgnoreLabelCase = true;
-        mArrangeChunks = true;
+        mArrangeChunks = false;
 
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
         mCurChunk = &(mChunks.back());
+        //Always start assembling at 0 unless otherwise specified.
+        mCurChunk->mHasTargetPos = true;
+        mCurChunk->mTargetPos = 0;
+        
+        //RET isn't an opcode, but it means this.
+        AddMacro("RET=SET PC, POP");
     }
 
 
@@ -675,14 +745,14 @@ namespace DAsm{
     void    Program::AddExpressionTarget(std::string nExpression,word* nTarget){
         if(mIgnoreLabelCase)
             transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
-        mExpressionTargets.push_back(expression_target(nExpression, nTarget));
+        mExpressionTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
     //Add word to be replaced with define later
     void    Program::AddDefineOnlyTarget(std::string nExpression,word* nTarget){
         if(mIgnoreLabelCase)
             transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
-        mDefineOnlyTargets.push_back(expression_target(nExpression, nTarget));
+        mDefineOnlyTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
 
@@ -694,10 +764,24 @@ namespace DAsm{
     }
 
     //Define label value
-    void    Program::AddDefine(std::string nLabel,word nValue){
+    void    Program::AddDefine(std::string nLabel,int nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         mDefineValues.push_back(label_value(nLabel, nValue));
+    }
+    
+    //Rewrite any local labels (beginning with .) in an expression to global ones
+    //Uses the currently set global label, if any
+    std::string Program::GlobalizeLabels(std::string nExpression){
+        std::string globalizer = mGlobalLabel + ".";
+        
+        if(mIgnoreLabelCase)
+            transform(globalizer.begin(), globalizer.end(), globalizer.begin(), ::toupper);
+        
+        //No .s should appear in expressions except at the start of labels.
+        //TODO: maybe associate a scope with expressions instead of just having
+        //them be strings so this can be more robust.
+        return replaceString(nExpression, "\\.", globalizer);
     }
 
 
@@ -758,7 +842,7 @@ namespace DAsm{
 
     //Add word to be incremented by expression
     void    Program::AddIncrementTarget(std::string nExpression, word* nTarget){
-        mIncrementTargets.push_back(expression_target( nExpression, nTarget));
+        mIncrementTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
     //Returns length of program so far, in words
     unsigned int    Program::GetLength(){
@@ -771,6 +855,7 @@ namespace DAsm{
 
     //Evaluates an expression
     int    Program::Evaluate(std::string expression){
+    
         if(expression.size()==0)
             return 0;
         //Basically we just go through each operator in order
@@ -797,7 +882,30 @@ namespace DAsm{
             return result;
         }
 
+        std::list<std::string> leftShiftParts;
+        splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
+        
+        if(leftShiftParts.size()>1){
+            result = Evaluate(leftShiftParts.front());
+            leftShiftParts.pop_front();
+            for(auto&& p: leftShiftParts){
+                result = result << Evaluate(p);
+            }
+            return result;
+        }
 
+        std::list<std::string> rightShiftParts;
+        splitString(expression,">>",rightShiftParts,[](std::string str){return true;});
+        
+        if(rightShiftParts.size()>1){
+            result = Evaluate(rightShiftParts.front());
+            rightShiftParts.pop_front();
+            for(auto&& p: rightShiftParts){
+                result = result >> Evaluate(p);
+            }
+            return result;
+        }
+        
         std::list<std::string> multiplyParts;
         splitString(expression,"\\*",multiplyParts);
 
@@ -939,17 +1047,27 @@ namespace DAsm{
                     }
                 }
             }
-
-            //Update label positions from relative to absolute
-            for(auto&& o : mOrdered){
-
-                for(auto && l : o->mLabelValues){
-                    l.value += o->mTargetPos;
-                }
-            }
         }else{
+            //Chunks with target positions get assembled as if they are there.
+            //Chunks with no target positions get assigned their actual positions.
+            //This is useful if your code moves itself around.
+            int start = 0;
             for(auto&& c : mChunks){
+                if(!c.mHasTargetPos){
+                    //Tell it it is where it actually is.
+                    c.mTargetPos = start;
+                    c.mHasTargetPos = true;
+                }
                 mOrdered.push_back(&c);
+                start += c.GetLength();
+            }
+        }
+        
+        //Update label positions from relative to absolute
+        //This needs to happen whether chunks are arranged or not.
+        for(auto&& o : mOrdered){
+            for(auto && l : o->mLabelValues){
+                l.value += o->mTargetPos;
             }
         }
 
