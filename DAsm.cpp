@@ -342,18 +342,59 @@ namespace DAsm{
             std::regex split_semicolon(";");
             std::sregex_token_iterator remove_comment(part->begin(), part->end(), split_semicolon, -1);
             *part = remove_comment->str();//Grab only the first bit (others will be comment)
+
+            //Now we have to split up into a command and some arguments.
+            //We want to support syntaxes like:
+            
+            //ADD A, 1
+            //ADD [A + 1], [A - 1]
+            //.DEFINE thing otherThing + 1
+            
+            //What we do is, make the command everything up to the first
+            //whitespace. Of the rest, if there's a comma, the stuff before the
+            //comma is the first argument, and the stuff after is the second.
+            //Otherwise, the first space-separated value is the first argument,
+            //and the rest is the second.
+            
+            
+            std::list<std::string> space_list;
+            splitString(*part, "(\\s|\\t)", space_list);//Split around space
+
+            if(space_list.size() == 0){//Line is only comment
+                return;
+            }
             
             std::list<std::string> token_list;
-            splitString(*part, "(\\s|\\t|,)", token_list);//Split around commas and space
-
-            if(token_list.size() == 0){//Line is only comment
-                return;
+            
+            //Take the first space-delimited token.
+            std::string token = space_list.front(); 
+            token_list.push_back(token);
+            space_list.pop_front();
+            
+            // Keep just what's after that first token
+            *part = (*part).substr((*part).find(token) + token.size());
+            
+            if((*part).find(',') == std::string::npos){
+                //There are no commas, so we use spaces to delimit the first argument
+                if(space_list.size()){
+                    // Take the second token
+                    token = space_list.front(); 
+                    token_list.push_back(token);
+                    space_list.pop_front();
+                    *part = (*part).substr((*part).find(token) + token.size());
+                    
+                    // Use the rest of part as the third token
+                    token_list.push_back(*part);
+                }
+            }else{
+                //There are commas, so split on them
+                splitString(*part, ",", token_list);//Split what wasn't used already around commas to get the other arguments
             }
             
             for(auto&& i : token_list)//Cleanup any stray spaces
                 i.erase(remove_if(i.begin(), i.end(),
                                   [](char x){return std::isspace(x,std::locale());}), i.end());
-            
+
             copy_if(token_list.begin(), token_list.end(),
                     back_inserter(final_split_list),
                     [&](std::string str){
