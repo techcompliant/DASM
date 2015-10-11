@@ -391,9 +391,9 @@ namespace DAsm{
                 splitString(*part, ",", token_list);//Split what wasn't used already around commas to get the other arguments
             }
             
-            for(auto&& i : token_list)//Cleanup any stray spaces
+            for(auto&& i : token_list)//Cleanup any stray spaces or commas
                 i.erase(remove_if(i.begin(), i.end(),
-                                  [](char x){return std::isspace(x,std::locale());}), i.end());
+                                  [](char x){return std::isspace(x,std::locale()) || x == ',';}), i.end());
 
             copy_if(token_list.begin(), token_list.end(),
                     back_inserter(final_split_list),
@@ -896,7 +896,6 @@ namespace DAsm{
 
     //Evaluates an expression
     int    Program::Evaluate(std::string expression){
-    
         if(expression.size()==0)
             return 0;
         //Basically we just go through each operator in order
