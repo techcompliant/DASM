@@ -345,44 +345,44 @@ namespace DAsm{
 
             //Now we have to split up into a command and some arguments.
             //We want to support syntaxes like:
-            
+
             //ADD A, 1
             //ADD [A + 1], [A - 1]
             //.DEFINE thing otherThing + 1
-            
+
             //What we do is, make the command everything up to the first
             //whitespace. Of the rest, if there's a comma, the stuff before the
             //comma is the first argument, and the stuff after is the second.
             //Otherwise, the first space-separated value is the first argument,
             //and the rest is the second.
-            
-            
+
+
             std::list<std::string> space_list;
             splitString(*part, "(\\s|\\t)", space_list);//Split around space
 
             if(space_list.size() == 0){//Line is only comment
                 return;
             }
-            
+
             std::list<std::string> token_list;
-            
+
             //Take the first space-delimited token.
-            std::string token = space_list.front(); 
+            std::string token = space_list.front();
             token_list.push_back(token);
             space_list.pop_front();
-            
+
             // Keep just what's after that first token
             *part = (*part).substr((*part).find(token) + token.size());
-            
+
             if((*part).find(',') == std::string::npos){
                 //There are no commas, so we use spaces to delimit the first argument
                 if(space_list.size()){
                     // Take the second token
-                    token = space_list.front(); 
+                    token = space_list.front();
                     token_list.push_back(token);
                     space_list.pop_front();
                     *part = (*part).substr((*part).find(token) + token.size());
-                    
+
                     // Use the rest of part as the third token
                     token_list.push_back(*part);
                 }
@@ -390,7 +390,7 @@ namespace DAsm{
                 //There are commas, so split on them
                 splitString(*part, ",", token_list);//Split what wasn't used already around commas to get the other arguments
             }
-            
+
             for(auto&& i : token_list)//Cleanup any stray spaces or commas
                 i.erase(remove_if(i.begin(), i.end(),
                                   [](char x){return std::isspace(x,std::locale()) || x == ',';}), i.end());
@@ -414,23 +414,23 @@ namespace DAsm{
                                   [](char x){return std::isspace(x,std::locale());}), first_str.end());
 
         if(first_str[0]==':'||first_str[first_str.size()-1]==':'){
-        
+
             std::string label;
             if(first_str[0]==':')
                 label = first_str.substr(1);
             else
                 label=first_str.substr(0,first_str.size()-1);
-                
+
             if(label.size() == 0){
                 Error(std::string("Empty label: ").append(source));
                 return;
             }
-            
+
             if(label.substr(1).find('.')!=std::string::npos){
                 Error(std::string("Illegal label-internal '.': ").append(source));
                 return;
             }
-            
+
             //Local labels (beginning with .) get the last global label name (if any) prepended.
             //You can re-use the same local label.
             //TODO: because of the way labels are fixed up in expressions, you
@@ -491,16 +491,16 @@ namespace DAsm{
             }
             return;
         }
-        
+
         //null-terminated strings, one character per word
         if(first_str=="ASCIIZ"||first_str==".ASCIIZ"){
             while(final_split_list.size()){
                 std::string cur_str = *final_split_list.begin();
                 bool is_quote = *is_quote_list.begin();
-                
+
                 final_split_list.pop_front();
                 is_quote_list.pop_front();
-                
+
                 if(is_quote){//Quotes get turned into character values
                     for(auto c = cur_str.begin(); c!= cur_str.end(); ++c){
                         if(*c == '\\'){
@@ -526,13 +526,13 @@ namespace DAsm{
                         mProgram->AddExpressionTarget(cur_str, &(mWords.back()));
                     }
                 }
-                
+
                 // Add the null terminator
                 mWords.push_back(word(0));
             }
             return;
         }
-        
+
         //Handles the org stuff, splitting code into chunks
         if(first_str=="ORG"||first_str==".ORG"){
             if(final_split_list.size()==0){
@@ -595,11 +595,11 @@ namespace DAsm{
             Fill(value, amount);
             return;
         }
-        
+
         if(first_str=="RESERVE"||first_str==".RESERVE"){
             if(final_split_list.size()==0)
                 return;
-            
+
             unsigned int amount = mProgram->Evaluate(final_split_list.front());
             Fill(0, amount);
             return;
@@ -745,6 +745,8 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWN", 0x10));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWQ", 0x11));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWI", 0x12));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("LOG", 0x13));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("BRK", 0x14));
 
         Instruction::mReg.push_back(str_opcode("A", 0x00));
         Instruction::mReg.push_back(str_opcode("B", 0x01));
@@ -766,7 +768,7 @@ namespace DAsm{
         //Always start assembling at 0 unless otherwise specified.
         mCurChunk->mHasTargetPos = true;
         mCurChunk->mTargetPos = 0;
-        
+
         //RET isn't an opcode, but it means this.
         AddMacro("RET=SET PC, POP");
     }
@@ -810,15 +812,15 @@ namespace DAsm{
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         mDefineValues.push_back(label_value(nLabel, nValue));
     }
-    
+
     //Rewrite any local labels (beginning with .) in an expression to global ones
     //Uses the currently set global label, if any
     std::string Program::GlobalizeLabels(std::string nExpression){
         std::string globalizer = mGlobalLabel + ".";
-        
+
         if(mIgnoreLabelCase)
             transform(globalizer.begin(), globalizer.end(), globalizer.begin(), ::toupper);
-        
+
         //No .s should appear in expressions except at the start of labels.
         //TODO: maybe associate a scope with expressions instead of just having
         //them be strings so this can be more robust.
@@ -924,7 +926,7 @@ namespace DAsm{
 
         std::list<std::string> leftShiftParts;
         splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
-        
+
         if(leftShiftParts.size()>1){
             result = Evaluate(leftShiftParts.front());
             leftShiftParts.pop_front();
@@ -936,7 +938,7 @@ namespace DAsm{
 
         std::list<std::string> rightShiftParts;
         splitString(expression,">>",rightShiftParts,[](std::string str){return true;});
-        
+
         if(rightShiftParts.size()>1){
             result = Evaluate(rightShiftParts.front());
             rightShiftParts.pop_front();
@@ -945,7 +947,7 @@ namespace DAsm{
             }
             return result;
         }
-        
+
         std::list<std::string> multiplyParts;
         splitString(expression,"\\*",multiplyParts);
 
@@ -1102,7 +1104,7 @@ namespace DAsm{
                 start += c.GetLength();
             }
         }
-        
+
         //Update label positions from relative to absolute
         //This needs to happen whether chunks are arranged or not.
         for(auto&& o : mOrdered){
