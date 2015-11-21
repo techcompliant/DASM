@@ -9,7 +9,7 @@
 std::string source =
 ";SPI Spy\n\
 ;Author: Alfie275\n\
-\n\
+FLAG ARRANGECHUNKS, 1\n\
 \n\
 ;SPI echo program\n\
 org 1000\n\
@@ -30,6 +30,7 @@ macro OOPS = OOPS\n\
 org 0\n\
 ;Generic code to find devices specified in lookup table:\n\
     HWN J       ;Get number of attached devices\n\
+    LOG J\n\
 	SET A, 1	;Current device number\n\
 \n\
 :device_loop\n\
