@@ -140,20 +140,6 @@ namespace DAsm{
         return 0xFF;
     }
 
-    // Returns true of an opcode needs arguments, false otherwise
-    bool    Instruction::GetArgumentFlag(std::string str){
-        for(auto&& i : mOpcodes){
-            if(i.str == str)
-                return i.arguments;
-        }
-        for(auto&& i : mSpecialOpcodes){
-            if(i.str == str)
-                return i.arguments;
-        }
-        Error(std::string("Opcode not found: ").append(str));
-        return true;
-    }
-
     //Returns length of instruction in words
     unsigned int    Instruction::GetLength(){
         return mWords.size();
@@ -163,6 +149,7 @@ namespace DAsm{
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
 
+
         bool dereference = false;
 
         if(source[0]=='['){
@@ -171,7 +158,10 @@ namespace DAsm{
             source.erase(remove(source.begin(), source.end(), ']'), source.end());
 
             dereference = true;
+
         }
+
+
 
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
@@ -231,6 +221,8 @@ namespace DAsm{
                         ret_word = 0x1A;
                     else
                         ret_word = 0x19;
+
+
                     continue;
                 }else{//When used as literal you cannot offset
                     ret_word = 0x1B;
@@ -306,6 +298,7 @@ namespace DAsm{
                 }
             }
             increment = true; //Any further constants will need to increment the word
+
         }
         return ret_word;
     }
@@ -343,59 +336,40 @@ namespace DAsm{
             std::sregex_token_iterator remove_comment(part->begin(), part->end(), split_semicolon, -1);
             *part = remove_comment->str();//Grab only the first bit (others will be comment)
 
-            //Now we have to split up into a command and some arguments.
-            //We want to support syntaxes like:
+            std::list<std::string> comma_split_list;
+            splitString(*part, ",", comma_split_list);//Split around commas
 
-            //ADD A, 1
-            //ADD [A + 1], [A - 1]
-            //.DEFINE thing otherThing + 1
-
-            //What we do is, make the command everything up to the first
-            //whitespace. Of the rest, if there's a comma, the stuff before the
-            //comma is the first argument, and the stuff after is the second.
-            //Otherwise, the first space-separated value is the first argument,
-            //and the rest is the second.
-
-
-            std::list<std::string> space_list;
-            splitString(*part, "(\\s|\\t)", space_list);//Split around space
-
-            if(space_list.size() == 0){//Line is only comment
+            if(comma_split_list.size() == 0){//Line is only comment
                 return;
             }
 
-            std::list<std::string> token_list;
+            std::string first_str = *(comma_split_list.begin());
 
-            //Take the first space-delimited token.
-            std::string token = space_list.front();
-            token_list.push_back(token);
-            space_list.pop_front();
+            std::list<std::string> split_first;
+            splitString(first_str, "(\\s|\\t)+", split_first);//Split first string around spaces
 
-            // Keep just what's after that first token
-            *part = (*part).substr((*part).find(token) + token.size());
 
-            if((*part).find(',') == std::string::npos){
-                //There are no commas, so we use spaces to delimit the first argument
-                if(space_list.size()){
-                    // Take the second token
-                    token = space_list.front();
-                    token_list.push_back(token);
-                    space_list.pop_front();
-                    *part = (*part).substr((*part).find(token) + token.size());
+            if(split_first.size()){
 
-                    // Use the rest of part as the third token
-                    token_list.push_back(*part);
+                final_split_list.push_back(split_first.front());
+                is_quote_list.push_back(false);
+
+                if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
+                    std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
+                    second.erase(remove_if(second.begin(), second.end(),
+                                           [](char x){return std::isspace(x,std::locale());}), second.end());
+
+                    final_split_list.push_back(second);
+                    is_quote_list.push_back(false);
                 }
-            }else{
-                //There are commas, so split on them
-                splitString(*part, ",", token_list);//Split what wasn't used already around commas to get the other arguments
             }
+            comma_split_list.pop_front();
 
-            for(auto&& i : token_list)//Cleanup any stray spaces or commas
+            for(auto&& i : comma_split_list)//Cleanup any stray spaces
                 i.erase(remove_if(i.begin(), i.end(),
-                                  [](char x){return std::isspace(x,std::locale()) || x == ',';}), i.end());
+                                  [](char x){return std::isspace(x,std::locale());}), i.end());
 
-            copy_if(token_list.begin(), token_list.end(),
+            copy_if(comma_split_list.begin(), comma_split_list.end(),
                     back_inserter(final_split_list),
                     [&](std::string str){
                         if(str.size()){
@@ -438,7 +412,7 @@ namespace DAsm{
             if(label[0] == '.'){
                 label = mProgram->mGlobalLabel + label;
             }else{
-                mProgram->mGlobalLabel = label;
+               mProgram->mGlobalLabel = label;
             }
 
             mProgram->AddLabelValue(label, word(mProgram->mCurChunk->GetLength()));
@@ -488,47 +462,6 @@ namespace DAsm{
                         mProgram->AddExpressionTarget(cur_str, &(mWords.back()));
                     }
                 }
-            }
-            return;
-        }
-
-        //null-terminated strings, one character per word
-        if(first_str=="ASCIIZ"||first_str==".ASCIIZ"){
-            while(final_split_list.size()){
-                std::string cur_str = *final_split_list.begin();
-                bool is_quote = *is_quote_list.begin();
-
-                final_split_list.pop_front();
-                is_quote_list.pop_front();
-
-                if(is_quote){//Quotes get turned into character values
-                    for(auto c = cur_str.begin(); c!= cur_str.end(); ++c){
-                        if(*c == '\\'){
-                            if(next(c) != cur_str.end()){
-                                if(*next(c) == '\\'){
-                                    mWords.push_back(word('\\'));
-                                    ++c;
-                                    continue;
-                                }
-                            }
-                        }else{
-                            mWords.push_back(word(*c));
-                        }
-                    }
-                }else{//Otherwise interpret as values/labels
-                    bool number;
-                    int value = getNumber(cur_str,number);
-                    if(number){
-                        mWords.push_back(word(value));
-                        continue;
-                    }else{
-                        mWords.push_back(word(0x1234));
-                        mProgram->AddExpressionTarget(cur_str, &(mWords.back()));
-                    }
-                }
-
-                // Add the null terminator
-                mWords.push_back(word(0));
             }
             return;
         }
@@ -595,15 +528,6 @@ namespace DAsm{
             Fill(value, amount);
             return;
         }
-
-        if(first_str=="RESERVE"||first_str==".RESERVE"){
-            if(final_split_list.size()==0)
-                return;
-
-            unsigned int amount = mProgram->Evaluate(final_split_list.front());
-            Fill(0, amount);
-            return;
-        }
         //Passes to macro system
         if(first_str=="FLAG"||first_str==".FLAG"){
             std::string flag_str = final_split_list.front();
@@ -662,13 +586,11 @@ namespace DAsm{
         if(lOp==0x00){
             lOp = GetSpecialOpcode(first_str);
             lWord |= lOp << 5;
-            if(GetArgumentFlag(first_str)) {
-                if(final_split_list.size()<1){
-                    Error(first_str.append(std::string(" opcode requires an operand")));
-                    return;
-                }
-                lWord |= ParseArg(*final_split_list.begin(), true) << 10;
+            if(final_split_list.size()<1){
+                Error(first_str.append(std::string(" opcode requires an operand")));
+                return;
             }
+            lWord |= ParseArg(*final_split_list.begin(), true) << 10;
         }else{
             if(final_split_list.size()<2){
                 Error(first_str.append(std::string(" requires two operands")));
@@ -740,13 +662,14 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("INT", 0x08));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAG", 0x09));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAS", 0x0A));
-        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B, false));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("RFI", 0x0B));
         Instruction::mSpecialOpcodes.push_back(str_opcode("IAQ", 0x0C));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWN", 0x10));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWQ", 0x11));
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWI", 0x12));
         Instruction::mSpecialOpcodes.push_back(str_opcode("LOG", 0x13));
         Instruction::mSpecialOpcodes.push_back(str_opcode("BRK", 0x14));
+
 
         Instruction::mReg.push_back(str_opcode("A", 0x00));
         Instruction::mReg.push_back(str_opcode("B", 0x01));
@@ -765,12 +688,15 @@ namespace DAsm{
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
         mCurChunk = &(mChunks.back());
+
         //Always start assembling at 0 unless otherwise specified.
         mCurChunk->mHasTargetPos = true;
         mCurChunk->mTargetPos = 0;
 
-        //RET isn't an opcode, but it means this.
+        //Some default macros
         AddMacro("RET=SET PC, POP");
+        AddMacro(".asciiz = dat %0, 0");
+        AddMacro(".reserve = fill 0, %0");
     }
 
 
@@ -813,15 +739,16 @@ namespace DAsm{
         mDefineValues.push_back(label_value(nLabel, nValue));
     }
 
+
     //Rewrite any local labels (beginning with .) in an expression to global ones
     //Uses the currently set global label, if any
     std::string Program::GlobalizeLabels(std::string nExpression){
         std::string globalizer = mGlobalLabel + ".";
 
-        if(mIgnoreLabelCase)
+       if(mIgnoreLabelCase)
             transform(globalizer.begin(), globalizer.end(), globalizer.begin(), ::toupper);
 
-        //No .s should appear in expressions except at the start of labels.
+       //No .s should appear in expressions except at the start of labels.
         //TODO: maybe associate a scope with expressions instead of just having
         //them be strings so this can be more robust.
         return replaceString(nExpression, "\\.", globalizer);
@@ -924,6 +851,7 @@ namespace DAsm{
             return result;
         }
 
+
         std::list<std::string> leftShiftParts;
         splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
 
@@ -939,7 +867,7 @@ namespace DAsm{
         std::list<std::string> rightShiftParts;
         splitString(expression,">>",rightShiftParts,[](std::string str){return true;});
 
-        if(rightShiftParts.size()>1){
+       if(rightShiftParts.size()>1){
             result = Evaluate(rightShiftParts.front());
             rightShiftParts.pop_front();
             for(auto&& p: rightShiftParts){
@@ -1089,13 +1017,15 @@ namespace DAsm{
                     }
                 }
             }
+
+
         }else{
             //Chunks with target positions get assembled as if they are there.
             //Chunks with no target positions get assigned their actual positions.
             //This is useful if your code moves itself around.
             int start = 0;
             for(auto&& c : mChunks){
-                if(!c.mHasTargetPos){
+                    if(!c.mHasTargetPos){
                     //Tell it it is where it actually is.
                     c.mTargetPos = start;
                     c.mHasTargetPos = true;
@@ -1110,8 +1040,9 @@ namespace DAsm{
         for(auto&& o : mOrdered){
             for(auto && l : o->mLabelValues){
                 l.value += o->mTargetPos;
-            }
-        }
+             }
+         }
+
 
         //Replace all the expression words with values
         for(auto&& t : mExpressionTargets){

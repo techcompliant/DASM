@@ -71,7 +71,6 @@ class   Instruction{
 
         opcode                              GetOpcode(std::string str);
         opcode                              GetSpecialOpcode(std::string str);
-        bool                                GetArgumentFlag(std::string str);
 
         void                                Error(std::string nError);
 
@@ -142,7 +141,7 @@ class   Program{
 
         std::list<ProgramChunk>             mChunks;
         std::list<ProgramChunk*>            mOrdered;
-        
+
         std::string                         mGlobalLabel;
 
         std::list<label_value>              mDefineValues;
