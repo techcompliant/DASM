@@ -13,10 +13,8 @@ FLAG ARRANGECHUNKS, 1\n\
 \n\
 ;SPI echo program\n\
 org 1000\n\
-macro .reserve = fill 0, %0\n\
 .reserve 10\n\
 dat \"Test\",0\n\
-macro .asciiz = dat %0, 0\n\
 .asciiz \"Test\"\n\
 ADD A, B\n\
 ADD A, C\n\
