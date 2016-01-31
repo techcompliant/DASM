@@ -321,6 +321,7 @@ namespace DAsm{
 
         //If line starts with " then it is a quote (currently shouldn't mean anything)
         bool in_quote = (source[0]=='"');
+
         for(auto part = quote_split_list.begin(); part!=quote_split_list.end(); ++part){
             if(in_quote){
                 if(is_quote_list.back() == true){
@@ -331,9 +332,11 @@ namespace DAsm{
                 is_quote_list.push_back(true);
                 continue;
             }
-
+            bool comment = false;
             std::regex split_semicolon(";");
             std::sregex_token_iterator remove_comment(part->begin(), part->end(), split_semicolon, -1);
+            if((*part).length()!=remove_comment->str().length())
+                comment = true;
             *part = remove_comment->str();//Grab only the first bit (others will be comment)
 
             std::list<std::string> comma_split_list;
@@ -379,6 +382,8 @@ namespace DAsm{
                         return false;
                     });
             in_quote = true;
+            if(comment)
+                break;
         }
 
         if(final_split_list.size()==0)return;
