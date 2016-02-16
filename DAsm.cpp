@@ -175,6 +175,14 @@ namespace DAsm{
         bool have_register = false;
         bool allow_register = true;
 
+        for(auto s = parts.begin();s!=parts.end();s++){
+            if(mProgram->IsMacro(*s)){
+                std::list<std::string> rest;
+                std::copy(s,parts.end(), std::back_inserter(rest));
+                *s = mProgram->DoMacro(*s, rest);
+            }
+        }
+
         while(parts.size()){
             //Grab part and set substring pointer (so we can get case-sensitive version if needed)
             std::string str_part = parts.front();
@@ -284,6 +292,7 @@ namespace DAsm{
                         mProgram->AddIncrementTarget(str_part, &mWords.back());
                 }
             }else{//Not a number, assume it's a label
+
                 if(increment)
                     mProgram->AddIncrementTarget(str_part, &mWords.back());
                 else{
@@ -291,10 +300,12 @@ namespace DAsm{
                     mProgram->AddExpressionTarget(str_part, &(mWords.back()));
                 }
                 if(!have_register){
-                    if(dereference)
-                        ret_word = 0x1E;
-                    else
-                        ret_word = 0x1F;
+                    if(!have_SP){
+                        if(dereference)
+                            ret_word = 0x1E;
+                        else
+                            ret_word = 0x1F;
+                    }
                 }
             }
             increment = true; //Any further constants will need to increment the word
@@ -510,10 +521,17 @@ namespace DAsm{
             final_split_list.pop_front();
 
 
+            bool eval_error = false;
+            int value = mProgram->Evaluate(final_split_list.front(),&eval_error);
 
-            int value = mProgram->Evaluate(final_split_list.front());
-
-            mProgram->AddDefine(cur_str, value);
+            if(eval_error){
+                std::string source_upper = source;
+                transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
+                //Preserve original case
+                mProgram->AddMacro(cur_str.append("=").append(source.substr(source.find(final_split_list.front()))));
+            }else{
+                mProgram->AddDefine(cur_str, value);
+            }
 
             return;
         }
@@ -717,15 +735,17 @@ namespace DAsm{
 
     //Add word to be replaced with expression later
     void    Program::AddExpressionTarget(std::string nExpression,word* nTarget){
-        if(mIgnoreLabelCase)
-            transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
+        if(nExpression.size())
+            if(mIgnoreLabelCase && nExpression[0]!='\'')
+                transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
         mExpressionTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
     //Add word to be replaced with define later
     void    Program::AddDefineOnlyTarget(std::string nExpression,word* nTarget){
-        if(mIgnoreLabelCase)
-            transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
+        if(nExpression.size())
+            if(mIgnoreLabelCase && nExpression[0]!='\'')
+                transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
         mDefineOnlyTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
@@ -829,9 +849,16 @@ namespace DAsm{
 
 
     //Evaluates an expression
-    int    Program::Evaluate(std::string expression){
+    int    Program::Evaluate(std::string expression, bool* errorFlag){
         if(expression.size()==0)
             return 0;
+
+        //Check for character literals
+
+        if(expression.size()==3)
+            if(expression[0]=='\''&&expression[2]=='\'')
+                return expression[1];
+
         //Basically we just go through each operator in order
         int result = 0;
         std::list<std::string> plusParts;
@@ -934,7 +961,8 @@ namespace DAsm{
         if(number)
             return result;
 
-        //Not a number, see if it's a label/define
+
+        //Not a number,, see if it's a label/define
 
 
         //If ignoring label case, everything is uppercase
@@ -950,8 +978,10 @@ namespace DAsm{
             for(auto&& v: c.mLabelValues)
                 if(expression == v.label)
                     return v.value;
-
-        Error(std::string("Could not evaluate expression:").append(expression));
+        if(errorFlag == nullptr)
+            Error(std::string("Could not evaluate expression:").append(expression));
+        else
+            *errorFlag = true;
         return 0;
 
 
