@@ -735,15 +735,17 @@ namespace DAsm{
 
     //Add word to be replaced with expression later
     void    Program::AddExpressionTarget(std::string nExpression,word* nTarget){
-        if(mIgnoreLabelCase)
-            transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
+        if(nExpression.size())
+            if(mIgnoreLabelCase && nExpression[0]!='\'')
+                transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
         mExpressionTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
     //Add word to be replaced with define later
     void    Program::AddDefineOnlyTarget(std::string nExpression,word* nTarget){
-        if(mIgnoreLabelCase)
-            transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
+        if(nExpression.size())
+            if(mIgnoreLabelCase && nExpression[0]!='\'')
+                transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
         mDefineOnlyTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
 
@@ -850,6 +852,13 @@ namespace DAsm{
     int    Program::Evaluate(std::string expression, bool* errorFlag){
         if(expression.size()==0)
             return 0;
+
+        //Check for character literals
+
+        if(expression.size()==3)
+            if(expression[0]=='\''&&expression[2]=='\'')
+                return expression[1];
+
         //Basically we just go through each operator in order
         int result = 0;
         std::list<std::string> plusParts;
@@ -952,7 +961,8 @@ namespace DAsm{
         if(number)
             return result;
 
-        //Not a number, see if it's a label/define
+
+        //Not a number,, see if it's a label/define
 
 
         //If ignoring label case, everything is uppercase
