@@ -291,10 +291,12 @@ namespace DAsm{
                     mProgram->AddExpressionTarget(str_part, &(mWords.back()));
                 }
                 if(!have_register){
-                    if(dereference)
-                        ret_word = 0x1E;
-                    else
-                        ret_word = 0x1F;
+                    if(!have_SP){
+                        if(dereference)
+                            ret_word = 0x1E;
+                        else
+                            ret_word = 0x1F;
+                    }
                 }
             }
             increment = true; //Any further constants will need to increment the word
