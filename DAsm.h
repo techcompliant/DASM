@@ -125,7 +125,7 @@ class   Program{
 
         std::string                         ToHex(std::string seperator = " 0x");
 
-        int                                 Evaluate(std::string expression);
+        int                                 Evaluate(std::string expression, bool* errorFlag=nullptr);
 
         bool                                IsMacro(std::string keyword);
         std::string                         DoMacro(std::string keyword, std::list<std::string> args);

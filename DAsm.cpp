@@ -175,6 +175,14 @@ namespace DAsm{
         bool have_register = false;
         bool allow_register = true;
 
+        for(auto s = parts.begin();s!=parts.end();s++){
+            if(mProgram->IsMacro(*s)){
+                std::list<std::string> rest;
+                std::copy(s,parts.end(), std::back_inserter(rest));
+                *s = mProgram->DoMacro(*s, rest);
+            }
+        }
+
         while(parts.size()){
             //Grab part and set substring pointer (so we can get case-sensitive version if needed)
             std::string str_part = parts.front();
@@ -284,6 +292,7 @@ namespace DAsm{
                         mProgram->AddIncrementTarget(str_part, &mWords.back());
                 }
             }else{//Not a number, assume it's a label
+
                 if(increment)
                     mProgram->AddIncrementTarget(str_part, &mWords.back());
                 else{
@@ -512,10 +521,17 @@ namespace DAsm{
             final_split_list.pop_front();
 
 
+            bool eval_error = false;
+            int value = mProgram->Evaluate(final_split_list.front(),&eval_error);
 
-            int value = mProgram->Evaluate(final_split_list.front());
-
-            mProgram->AddDefine(cur_str, value);
+            if(eval_error){
+                std::string source_upper = source;
+                transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
+                //Preserve original case
+                mProgram->AddMacro(cur_str.append("=").append(source.substr(source.find(final_split_list.front()))));
+            }else{
+                mProgram->AddDefine(cur_str, value);
+            }
 
             return;
         }
@@ -831,7 +847,7 @@ namespace DAsm{
 
 
     //Evaluates an expression
-    int    Program::Evaluate(std::string expression){
+    int    Program::Evaluate(std::string expression, bool* errorFlag){
         if(expression.size()==0)
             return 0;
         //Basically we just go through each operator in order
@@ -952,8 +968,10 @@ namespace DAsm{
             for(auto&& v: c.mLabelValues)
                 if(expression == v.label)
                     return v.value;
-
-        Error(std::string("Could not evaluate expression:").append(expression));
+        if(errorFlag == nullptr)
+            Error(std::string("Could not evaluate expression:").append(expression));
+        else
+            *errorFlag = true;
         return 0;
 
 
