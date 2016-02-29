@@ -69,7 +69,7 @@ namespace DAsm{
 
     //Function to split string based on regex and put in list. Default predicate is just non-emptiness
     void    splitString(std::string& source, std::string splitRegex, std::list<std::string>& stringList,
-                        std::function<bool(std::string)> predicate = [](std::string str){return bool(str.size());}){
+                        std::function<bool(std::string)> predicate = [](std::string str){return (str.size() > 0);}){
 
         std::regex split(splitRegex);
         copy_if(std::sregex_token_iterator(source.begin(), source.end(), split, -1),
@@ -265,9 +265,10 @@ namespace DAsm{
             }
 
             //See if this is a number
-            bool number;
-            int value = getNumber(str_part_upper, number);
-            if(number){
+            bool error_flag;
+            int value = mProgram->Evaluate(str_part_upper, &error_flag);
+
+            if(!error_flag){
 
 
                 bool next_word = true;//Do we need to add another word to instruction?
@@ -559,7 +560,7 @@ namespace DAsm{
                 Error(std::string("Insufficient operands: ").append(source));
                 return;
             }
-            bool value = mProgram->Evaluate(final_split_list.front());
+            bool value = (mProgram->Evaluate(final_split_list.front()) != 0);
             transform(flag_str.begin(), flag_str.end(), flag_str.begin(), ::toupper);
 
             if(flag_str == "IGNORELABELCASE"){
