@@ -26,6 +26,7 @@ SUPER_SUM A, B, C, X, Y\n\
 macro OOPS = OOPS\n\
 ;Using OOPS would cause a max recursion error\n\
 org 0\n\
+SET A, device_loop-table_loop\n\
 ;Generic code to find devices specified in lookup table:\n\
     HWN J       ;Get number of attached devices\n\
     LOG J\n\
