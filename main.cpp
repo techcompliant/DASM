@@ -21,6 +21,7 @@ ADD A, C\n\
 macro SUM = ADD %0, %1 %n ADD %0, %2\n\
 SUM A, B, C\n\
 DAT table_loop-device_loop\n\
+DAT 2/0\n\
 macro SUPER_SUM = SUM %0, %1, %2 %n SUM %0, %3, %4\n\
 SUPER_SUM A, B, C, X, Y\n\
 macro OOPS = OOPS\n\

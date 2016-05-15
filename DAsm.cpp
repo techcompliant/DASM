@@ -930,7 +930,9 @@ namespace DAsm{
             result = Evaluate(divideParts.front());
             divideParts.pop_front();
             for(auto&& p: divideParts){
-                result /= Evaluate(p, errorFlag);
+                int divide_value = Evaluate(p, errorFlag);
+                if(divide_value != 0)
+                    result /= divide_value;
             }
             return result;
         }
