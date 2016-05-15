@@ -469,9 +469,9 @@ namespace DAsm{
                         }
                     }
                 }else{//Otherwise interpret as values/labels
-                    bool number;
-                    int value = getNumber(cur_str,number);
-                    if(number){
+                    bool error;
+                    int value = mProgram->Evaluate(cur_str,&error);
+                    if(!error){
                         mWords.push_back(word(value));
                         continue;
                     }else{
@@ -756,6 +756,12 @@ namespace DAsm{
     void    Program::AddLabelValue(std::string nLabel,word nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
+        for(auto&& l : mChunks.back().mLabelValues){
+            if(l.label == nLabel){
+                l.value = nValue;
+                return;
+            }
+        }
         mChunks.back().mLabelValues.push_back(label_value(nLabel, nValue));
     }
 
@@ -763,6 +769,12 @@ namespace DAsm{
     void    Program::AddDefine(std::string nLabel,int nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
+        for(auto&& d : mDefineValues){
+            if(d.label == nLabel){
+                d.value = nValue;
+                return;
+            }
+        }
         mDefineValues.push_back(label_value(nLabel, nValue));
     }
 
@@ -799,8 +811,20 @@ namespace DAsm{
         inOutParts.pop_front();
 
         std::string outStr;
+        bool first = true;
         for(auto&& p : inOutParts){
+            if(!first)
+                outStr.append(std::string("="));
             outStr = outStr.append(p);
+            first=false;
+        }
+
+
+        for(auto&& m: mMacros){
+            if(m.keyword == keyword){
+                m.format = outStr;
+                return;
+            }
         }
 
         lMacro.keyword = keyword;
@@ -831,7 +855,16 @@ namespace DAsm{
         unsigned int i = 0;
         for(auto&& a : args){
             a = regexEscape(a);
-            out = replaceString(out, std::string("%").append(std::to_string(i++)), a);
+            std::string argNumStr = std::to_string(i++);
+            if(out.find(std::string("%e").append(argNumStr))!= std::string::npos){
+                bool error;
+                std::string evalledStr = std::to_string(Evaluate(a, &error));
+                if(!error){
+                    out = replaceString(out, std::string("%e").append(argNumStr),evalledStr);
+                    continue;
+                }
+            }
+            out = replaceString(out, std::string("%").append(argNumStr), a);
         }
         return out;
     }
