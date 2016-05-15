@@ -693,6 +693,7 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWI", 0x12));
         Instruction::mSpecialOpcodes.push_back(str_opcode("LOG", 0x13));
         Instruction::mSpecialOpcodes.push_back(str_opcode("BRK", 0x14));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("HLT", 0x15));
 
 
         Instruction::mReg.push_back(str_opcode("A", 0x00));
