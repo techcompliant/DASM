@@ -469,9 +469,9 @@ namespace DAsm{
                         }
                     }
                 }else{//Otherwise interpret as values/labels
-                    bool number;
-                    int value = getNumber(cur_str,number);
-                    if(number){
+                    bool error;
+                    int value = mProgram->Evaluate(cur_str,&error);
+                    if(!error){
                         mWords.push_back(word(value));
                         continue;
                     }else{
@@ -693,6 +693,7 @@ namespace DAsm{
         Instruction::mSpecialOpcodes.push_back(str_opcode("HWI", 0x12));
         Instruction::mSpecialOpcodes.push_back(str_opcode("LOG", 0x13));
         Instruction::mSpecialOpcodes.push_back(str_opcode("BRK", 0x14));
+        Instruction::mSpecialOpcodes.push_back(str_opcode("HLT", 0x15));
 
 
         Instruction::mReg.push_back(str_opcode("A", 0x00));
@@ -755,6 +756,12 @@ namespace DAsm{
     void    Program::AddLabelValue(std::string nLabel,word nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
+        for(auto&& l : mChunks.back().mLabelValues){
+            if(l.label == nLabel){
+                l.value = nValue;
+                return;
+            }
+        }
         mChunks.back().mLabelValues.push_back(label_value(nLabel, nValue));
     }
 
@@ -762,6 +769,12 @@ namespace DAsm{
     void    Program::AddDefine(std::string nLabel,int nValue){
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
+        for(auto&& d : mDefineValues){
+            if(d.label == nLabel){
+                d.value = nValue;
+                return;
+            }
+        }
         mDefineValues.push_back(label_value(nLabel, nValue));
     }
 
@@ -798,8 +811,20 @@ namespace DAsm{
         inOutParts.pop_front();
 
         std::string outStr;
+        bool first = true;
         for(auto&& p : inOutParts){
+            if(!first)
+                outStr.append(std::string("="));
             outStr = outStr.append(p);
+            first=false;
+        }
+
+
+        for(auto&& m: mMacros){
+            if(m.keyword == keyword){
+                m.format = outStr;
+                return;
+            }
         }
 
         lMacro.keyword = keyword;
@@ -830,7 +855,16 @@ namespace DAsm{
         unsigned int i = 0;
         for(auto&& a : args){
             a = regexEscape(a);
-            out = replaceString(out, std::string("%").append(std::to_string(i++)), a);
+            std::string argNumStr = std::to_string(i++);
+            if(out.find(std::string("%e").append(argNumStr))!= std::string::npos){
+                bool error;
+                std::string evalledStr = std::to_string(Evaluate(a, &error));
+                if(!error){
+                    out = replaceString(out, std::string("%e").append(argNumStr),evalledStr);
+                    continue;
+                }
+            }
+            out = replaceString(out, std::string("%").append(argNumStr), a);
         }
         return out;
     }
@@ -838,6 +872,9 @@ namespace DAsm{
 
     //Add word to be incremented by expression
     void    Program::AddIncrementTarget(std::string nExpression, word* nTarget){
+        if(nExpression.size())
+            if(mIgnoreLabelCase && nExpression[0]!='\'')
+                transform(nExpression.begin(), nExpression.end(), nExpression.begin(), ::toupper);
         mIncrementTargets.push_back(expression_target(GlobalizeLabels(nExpression), nTarget));
     }
     //Returns length of program so far, in words
@@ -867,7 +904,7 @@ namespace DAsm{
 
         if(plusParts.size()>1){
             for(auto&& p: plusParts){
-                result += Evaluate(p);
+                result += Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -876,10 +913,10 @@ namespace DAsm{
         splitString(expression,"-",minusParts,[](std::string str){return true;});
 
         if(minusParts.size()>1){
-            result = Evaluate(minusParts.front());
+            result = Evaluate(minusParts.front(), errorFlag);
             minusParts.pop_front();
             for(auto&& p: minusParts){
-                result -= Evaluate(p);
+                result -= Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -889,10 +926,10 @@ namespace DAsm{
         splitString(expression,"<<",leftShiftParts,[](std::string str){return true;});
 
         if(leftShiftParts.size()>1){
-            result = Evaluate(leftShiftParts.front());
+            result = Evaluate(leftShiftParts.front(), errorFlag);
             leftShiftParts.pop_front();
             for(auto&& p: leftShiftParts){
-                result = result << Evaluate(p);
+                result = result << Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -904,7 +941,7 @@ namespace DAsm{
             result = Evaluate(rightShiftParts.front());
             rightShiftParts.pop_front();
             for(auto&& p: rightShiftParts){
-                result = result >> Evaluate(p);
+                result = result >> Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -915,7 +952,7 @@ namespace DAsm{
         if(multiplyParts.size()>1){
             result=1;
             for(auto&& p: multiplyParts){
-                result *= Evaluate(p);
+                result *= Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -927,7 +964,9 @@ namespace DAsm{
             result = Evaluate(divideParts.front());
             divideParts.pop_front();
             for(auto&& p: divideParts){
-                result /= Evaluate(p);
+                int divide_value = Evaluate(p, errorFlag);
+                if(divide_value != 0)
+                    result /= divide_value;
             }
             return result;
         }
@@ -939,7 +978,7 @@ namespace DAsm{
             result = Evaluate(andParts.front());
             andParts.pop_front();
             for(auto&& p: andParts){
-                result = result & Evaluate(p);
+                result = result & Evaluate(p, errorFlag);
             }
             return result;
         }
@@ -950,7 +989,7 @@ namespace DAsm{
             result = Evaluate(orParts.front());
             orParts.pop_front();
             for(auto&& p: orParts){
-                result = result | Evaluate(p);
+                result = result | Evaluate(p, errorFlag);
             }
             return result;
         }

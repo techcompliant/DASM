@@ -21,11 +21,23 @@ ADD A, C\n\
 macro SUM = ADD %0, %1 %n ADD %0, %2\n\
 SUM A, B, C\n\
 DAT table_loop-device_loop\n\
+DAT 2/0\n\
+HLT 5\n\
 macro SUPER_SUM = SUM %0, %1, %2 %n SUM %0, %3, %4\n\
 SUPER_SUM A, B, C, X, Y\n\
 macro OOPS = OOPS\n\
+.def counter, 1\n\
+.def num1, 2\n\
+.def num2, 3\n\
+.def num3, 5\n\
+macro DONUM=DAT num%e0\n\
+macro NUM =DONUM counter %n.def counter, counter+1\n\
+NUM\n\
+NUM\n\
+NUM\n\
 ;Using OOPS would cause a max recursion error\n\
 org 0\n\
+SET A, device_loop-table_loop\n\
 ;Generic code to find devices specified in lookup table:\n\
     HWN J       ;Get number of attached devices\n\
     LOG J\n\
