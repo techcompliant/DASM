@@ -21,6 +21,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace DAsm{
 
+    std::string trimWS(std::string& s){
+        std::string ws = " \t";
+        s.erase(0, s.find_first_not_of(ws));
+        s.erase(s.find_last_not_of(ws)+1);
+        return s;
+    }
 
     //std::stoi is far too lenient wrt numbers with other stuff at the end
     int     getNumber(std::string str, bool& number){
@@ -148,7 +154,7 @@ namespace DAsm{
     //Parses the A or B argument of an instruction
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
-
+        trimWS(source);
 
         bool dereference = false;
 
@@ -174,6 +180,9 @@ namespace DAsm{
         bool increment = false;
         bool have_register = false;
         bool allow_register = true;
+
+        for(auto&& s : parts)
+            trimWS(s);
 
         for(auto s = parts.begin();s!=parts.end();s++){
             if(mProgram->IsMacro(*s)){
@@ -371,8 +380,7 @@ namespace DAsm{
 
                 if(split_first.size()>1){//Join the rest, since only the first bit needs to be on its own
                     std::string second =first_str.substr(first_str.find(split_first.front())+split_first.front().size());
-                    second.erase(remove_if(second.begin(), second.end(),
-                                           [](char x){return std::isspace(x,std::locale());}), second.end());
+
 
                     final_split_list.push_back(second);
                     is_quote_list.push_back(false);
@@ -489,7 +497,7 @@ namespace DAsm{
                 Error(std::string("Insufficient operands: ").append(source));
                 return;
             }
-            std::string cur_str = final_split_list.front();
+            std::string cur_str = trimWS(final_split_list.front());
 
             mProgram->mChunks.emplace_back();
             ProgramChunk* lChunk = &(mProgram->mChunks.back());
@@ -514,11 +522,25 @@ namespace DAsm{
         //Handles defines, which are basically like labels
         if(first_str=="DEF"||first_str==".DEF"||
            first_str=="DEFINE"||first_str==".DEFINE"){
+
+            if(final_split_list.size()==1 && !mProgram->mStrictDefineCommas){
+                std::list<std::string> split_space;
+                std::string total_str = final_split_list.front();
+                splitString(total_str, "(\\s|\\t)+", split_space);
+                if(split_space.size()>1){
+                    std::string value_str =total_str.substr(total_str.find(split_space.front())+split_space.front().size());
+                    final_split_list.pop_front();
+                    final_split_list.push_back(split_space.front());
+                    final_split_list.push_back(value_str);
+                }
+            }
+
+
             if(final_split_list.size()<2){
                 Error(std::string("Insufficient operands: ").append(source));
                 return;
             }
-            std::string cur_str = final_split_list.front();
+            std::string cur_str = trimWS(final_split_list.front());
             final_split_list.pop_front();
 
 
@@ -554,7 +576,7 @@ namespace DAsm{
         }
         //Passes to macro system
         if(first_str=="FLAG"||first_str==".FLAG"){
-            std::string flag_str = final_split_list.front();
+            std::string flag_str = trimWS(final_split_list.front());
             final_split_list.pop_front();
             if(final_split_list.size()==0){
                 Error(std::string("Insufficient operands: ").append(source));
@@ -569,8 +591,15 @@ namespace DAsm{
             }
             if(flag_str == "ARRANGECHUNKS"){
                 mProgram->mArrangeChunks = value;
+                return;
+            }
+            if(flag_str == "STRICTDEFINECOMMAS"){
+                mProgram->mStrictDefineCommas = value;
+                return;
             }
 
+
+            mProgram->Error(std::string("Unknown flag:").append(flag_str));
             return;
         }
 
@@ -709,6 +738,7 @@ namespace DAsm{
 
         mIgnoreLabelCase = true;
         mArrangeChunks = false;
+        mStrictDefineCommas = false;
 
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
@@ -754,6 +784,7 @@ namespace DAsm{
 
     //Add value of label
     void    Program::AddLabelValue(std::string nLabel,word nValue){
+        trimWS(nLabel);
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         for(auto&& l : mChunks.back().mLabelValues){
@@ -767,6 +798,7 @@ namespace DAsm{
 
     //Define label value
     void    Program::AddDefine(std::string nLabel,int nValue){
+        trimWS(nLabel);
         if(mIgnoreLabelCase)
             transform(nLabel.begin(), nLabel.end(), nLabel.begin(), ::toupper);
         for(auto&& d : mDefineValues){
@@ -890,6 +922,8 @@ namespace DAsm{
     int    Program::Evaluate(std::string expression, bool* errorFlag){
         if(expression.size()==0)
             return 0;
+
+        trimWS(expression);
 
         //Check for character literals
 

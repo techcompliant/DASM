@@ -35,9 +35,11 @@ macro NUM =DONUM counter %n.def counter, counter+1\n\
 NUM\n\
 NUM\n\
 NUM\n\
+def no_comma_define 0x00ab\n\
+dat no_comma_define\n\
 ;Using OOPS would cause a max recursion error\n\
 org 0\n\
-SET A, device_loop-table_loop\n\
+ SET   A, device_loop  -  table_loop\n\
 ;Generic code to find devices specified in lookup table:\n\
     HWN J       ;Get number of attached devices\n\
     LOG J\n\
