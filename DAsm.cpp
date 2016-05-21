@@ -612,6 +612,28 @@ namespace DAsm{
             return;
         }
 
+        if(first_str=="OPCODE"||first_str==".OPCODE"){
+            if(final_split_list.size()<3){
+                mProgram->Error(std::string("Insufficient arguments:").append(source));
+                return;
+            }
+
+            std::string op_str = trimWS(final_split_list.front()); final_split_list.pop_front();
+            std::string val_str = final_split_list.front(); final_split_list.pop_front();
+            std::string type_str = trimWS(final_split_list.front()); final_split_list.pop_front();
+            str_opcode new_opcode = str_opcode(op_str, mProgram->Evaluate(val_str));
+
+            if(type_str == "AB"){
+                mOpcodes.push_back(new_opcode);
+            }else if(type_str == "A"){
+                mSpecialOpcodes.push_back(new_opcode);
+            }else{
+                mProgram->Error(std::string("Invalid opcode type:").append(source));
+            }
+
+            return;
+        }
+
         if(mProgram->IsMacro(first_str)){
             auto q = is_quote_list.begin();
             //Re-insert the quotes
@@ -887,6 +909,7 @@ namespace DAsm{
         unsigned int i = 0;
         for(auto&& a : args){
             a = regexEscape(a);
+            trimWS(a);
             std::string argNumStr = std::to_string(i++);
             if(out.find(std::string("%e").append(argNumStr))!= std::string::npos){
                 bool error;

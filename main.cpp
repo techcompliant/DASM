@@ -38,6 +38,8 @@ NUM\n\
 def no_comma_define 0x00ab\n\
 dat no_comma_define\n\
 ;Using OOPS would cause a max recursion error\n\
+OPCODE MYOPCODE  , 0x1F, A\n\
+MYOPCODE A\n\
 org 0\n\
  SET   A, device_loop  -  table_loop\n\
 ;Generic code to find devices specified in lookup table:\n\
