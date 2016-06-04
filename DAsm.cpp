@@ -440,7 +440,7 @@ namespace DAsm{
                mProgram->mGlobalLabel = label;
             }
 
-            mProgram->AddLabelValue(label, word(mProgram->mCurChunk->GetLength()));
+            mProgram->AddLabelValue(label, word(mProgram->mCurChunk->GetLength()+mProgram->mCurChunk->mTargetPos));
 
             //If there is aside from the label, we'll recursively parse it
             if(final_split_list.size()>1){
@@ -508,10 +508,10 @@ namespace DAsm{
             lChunk->mHasTargetPos = true;
 
 
-            bool number;
-            int value = getNumber(cur_str,number);
+            bool errorFlag = false;
+            int value = mProgram->Evaluate(cur_str,&errorFlag);
 
-            if(number){
+            if(!errorFlag){
                 lChunk->mTargetPos = value;
             }else{
                 mProgram->AddDefineOnlyTarget(cur_str, &(lChunk->mTargetPos));
@@ -1074,7 +1074,6 @@ namespace DAsm{
         for(auto&& c : mChunks)
             for(auto&& v: c.mLabelValues)
                 if(expression == v.label) {
-		    if(errorFlag != nullptr) *errorFlag = true;
                     return v.value;
 		}
         if(errorFlag == nullptr)
@@ -1139,6 +1138,9 @@ namespace DAsm{
 
                 if(!(*n)->mHasTargetPos){
                     (*n)->mTargetPos = (*i)->mTargetPos + (*i)->GetLength();
+                    for(auto && l : (*n)->mLabelValues)
+                        l.value += (*n)->mTargetPos;
+
                 }else{
                     int padding = (*n)->mTargetPos - ((*i)->mTargetPos + (*i)->GetLength());
 
@@ -1153,6 +1155,9 @@ namespace DAsm{
             }
 
 
+
+
+
         }else{
             //Chunks with target positions get assembled as if they are there.
             //Chunks with no target positions get assigned their actual positions.
@@ -1163,19 +1168,17 @@ namespace DAsm{
                     //Tell it it is where it actually is.
                     c.mTargetPos = start;
                     c.mHasTargetPos = true;
+                    for(auto && l : c.mLabelValues)
+                        l.value += c.mTargetPos;
+
                 }
                 mOrdered.push_back(&c);
                 start += c.GetLength();
             }
         }
 
-        //Update label positions from relative to absolute
-        //This needs to happen whether chunks are arranged or not.
-        for(auto&& o : mOrdered){
-            for(auto && l : o->mLabelValues){
-                l.value += o->mTargetPos;
-             }
-         }
+
+
 
 
         //Replace all the expression words with values

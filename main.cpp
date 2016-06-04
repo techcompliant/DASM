@@ -12,7 +12,10 @@ std::string source =
 FLAG ARRANGECHUNKS, 1\n\
 \n\
 ;SPI echo program\n\
-org 1000\n\
+org 1024\n\
+:test_label_org\n\
+dat 0xFAFA\n\
+dat test_label_org\n\
 .reserve 10\n\
 dat \"Test\",0\n\
 .asciiz \"Test\"\n\
