@@ -281,7 +281,7 @@ int main()
         delete lMemory;
     }else{
         for(auto&& error : lProgram->mErrors){
-            std::cout << "Error: " << error << std::endl;
+            std::cerr << "Error: " << error << std::endl;
         }
 
     }

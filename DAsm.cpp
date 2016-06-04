@@ -1073,8 +1073,10 @@ namespace DAsm{
 
         for(auto&& c : mChunks)
             for(auto&& v: c.mLabelValues)
-                if(expression == v.label)
+                if(expression == v.label) {
+		    if(errorFlag != nullptr) *errorFlag = true;
                     return v.value;
+		}
         if(errorFlag == nullptr)
             Error(std::string("Could not evaluate expression:").append(expression));
         else
