@@ -11,7 +11,7 @@
 
 int assemble(const char *infile, const char *outfile); // Takes char* for easy passing of arguments from argv
 std::string getFile(std::string filename);
-std::string change_or_add_file_extension(std::string file, std::string new_extension);
+std::string changeOrAddFileExtension(std::string file, std::string new_extension);
 
 int main(int argc, char** argv) {
 
@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
         return 1;
     } else if(argc < 3) {
         infile = argv[1];
-        outfile = change_or_add_file_extension(argv[1], "bin").c_str();
+        outfile = changeOrAddFileExtension(argv[1], "bin").c_str();
         std::cout << "Outputing to " << outfile << std::endl;
     } else {
         infile = argv[1];
@@ -154,7 +154,7 @@ int assemble(const char *infile, const char *outfile) {
   return 0;
 }
 
-std::string change_or_add_file_extension(std::string file, std::string new_extension) {
+std::string changeOrAddFileExtension(std::string file, std::string new_extension) {
 
     std::string dir, filename, rawname;
     std::stringstream output;
