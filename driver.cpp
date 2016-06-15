@@ -160,7 +160,7 @@ std::string change_or_add_file_extension(std::string file, std::string new_exten
     std::stringstream output;
 
     // Seperate the file into the directory and filename
-    std::regex re("(^.*\\/|^)(.*)");
+    std::regex re("(^.*(?:\\\\|\\/)|^)(.*)");
     std::smatch match;
     std::regex_search(file, match, re);
     dir = match.str(1);
