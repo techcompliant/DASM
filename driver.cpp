@@ -10,7 +10,7 @@
 #include "DAsm.h"
 
 int assemble(const char *infile, const char *outfile); // Takes char* for easy passing of arguments from argv
-std::string getFile(std::string filename);
+bool getFile(std::string filename, std::stringstream &buffer);
 std::string changeOrAddFileExtension(std::string file, std::string new_extension);
 
 int main(int argc, char** argv) {
@@ -34,18 +34,21 @@ int main(int argc, char** argv) {
 }
 
 /**
- * Load a file, processing any .include or #include directives.
- */
-std::string getFile(std::string filename) {
-    // We'll just cat everything into this stream.
-    std::stringstream result;
-
-    std::cerr << "Loading " << filename << std::endl;
+* Load a file, processing any .include or #include directives.
+* Returns whether the load was succesful
+*/
+bool getFile(std::string filename, std::stringstream &buffer) {
 
     // Open the file
     std::ifstream file(filename);
 
-    // TODO: warn about missing files
+    if(!file.good()) {
+        // File does not exist
+        std::cerr << "Could not open file: " << filename << std::endl;
+        return false; // Exit with failure
+    }
+
+    std::cerr << "Loading " << filename << std::endl;
 
     size_t line_number = 0;
 
@@ -96,7 +99,10 @@ std::string getFile(std::string filename) {
                     // TODO: catch include loops
 
                     // Recurse
-                    result << getFile(included_filename);
+                    if(!getFile(included_filename, buffer)) {
+                        // Something went wrong including, Exit with failure
+                        return false;
+                    }
 
                     // Don't take this line
                     continue;
@@ -104,54 +110,62 @@ std::string getFile(std::string filename) {
                 } else {
                     std::cerr << "Preprocessor error: " << filename << ": " << line_number << ": Incorrect include syntax" << std::endl;
                     std::cerr << line << std::endl;
-                    exit(1);
+                    return false; // Exit with failure
                 }
 
             }
         }
 
         // If we get here it wasn't an include. Use the line.
-        result << line << std::endl;
+        buffer << line << std::endl;
     }
 
-    // Get the string and return it
-    return result.str();
+    // Everything was ok, return true
+    return true;
 }
 
 int assemble(const char *infile, const char *outfile) {
-  // Load up the source code.
-  std::string source = getFile(infile);
+    // Load up the source code.
+    std::stringstream buffer;
 
-  DAsm::Program lProgram;
+    if(getFile(infile, buffer)) {
+        DAsm::Program lProgram;
 
-  if(lProgram.LoadSource(source)){
-      // It compiled.
-      unsigned long pSize;
-      //The parameters in this call are optional
-      DAsm::word* lMemory = lProgram.ToBlock(DAsm::DCPU_RAM_SIZE, pSize);
+        if(lProgram.LoadSource(buffer.str())){
+            // It compiled.
+            unsigned long pSize;
+            //The parameters in this call are optional
+            DAsm::word* lMemory = lProgram.ToBlock(DAsm::DCPU_RAM_SIZE, pSize);
 
-      // Open the output file
-      std::ofstream out(outfile);
+            // Open the output file
+            std::ofstream out(outfile);
 
-      // Dump the program to disk in big endian byte order
-      for(int i = 0; i < pSize; i++){
-          // Break into bytes
-          unsigned char bytes[2];
-          bytes[0] = lMemory[i] >> 8;
-          bytes[1] = lMemory[i] & 0xFF;
+            // Dump the program to disk in big endian byte order
+            for(int i = 0; i < pSize; i++){
+                // Break into bytes
+                unsigned char bytes[2];
+                bytes[0] = lMemory[i] >> 8;
+                bytes[1] = lMemory[i] & 0xFF;
 
-          // Write the bytes
-          out.write((char*) bytes, 2);
-      }
-      std::cout << "Wrote "<< pSize << " words to " << outfile << std::endl;
-      delete lMemory;
-  }else{
-      for(auto&& error : lProgram.mErrors){
-          std::cerr << "Error: " << error << std::endl;
-      }
-      return 1;
-  }
-  return 0;
+                // Write the bytes
+                out.write((char*) bytes, 2);
+            }
+            std::cout << "Wrote "<< pSize << " words to " << outfile << std::endl;
+            delete lMemory;
+        }else{
+            for(auto&& error : lProgram.mErrors){
+                std::cerr << "Error: " << error << std::endl;
+            }
+            return 1;
+        }
+
+    } else {
+        // Something went wrong during preprocessing - an error, or non-existing file
+        // Error message already given so just exit with failure
+        return 1;
+    }
+
+    return 0;
 }
 
 std::string changeOrAddFileExtension(std::string file, std::string new_extension) {
