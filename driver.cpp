@@ -140,6 +140,13 @@ int assemble(const char *infile, const char *outfile) {
             // Open the output file
             std::ofstream out(outfile);
 
+            if(!out.good()) {
+                // Cannot write to the output file
+                std::cerr << "Cannot open file for writing: " << outfile << std::endl;
+                delete lMemory;
+                return 1;
+            }
+
             // Dump the program to disk in big endian byte order
             for(int i = 0; i < pSize; i++){
                 // Break into bytes
