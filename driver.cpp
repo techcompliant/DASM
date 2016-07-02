@@ -133,7 +133,7 @@ namespace DAsmDriver{
         return output;
     }
 
-    int assemble(const char *infile, const char *outfile) {
+    int assemble(const char *infile, const char *outfile, bool little_endian) {
         // Load up the source code.
         std::stringstream buffer;
 
@@ -147,9 +147,8 @@ namespace DAsmDriver{
                 unsigned long pSize;
                 //The parameters in this call are optional
                 DAsm::word* lMemory = lProgram.ToBlock(DAsm::DCPU_RAM_SIZE, pSize);
-
                 // Open the output file
-                std::ofstream out(outfile);
+                std::ofstream out(outfile, std::ios::binary | std::ios::out);
 
                 if(!out.good()) {
                     // Cannot write to the output file
@@ -162,8 +161,13 @@ namespace DAsmDriver{
                 for(int i = 0; i < pSize; i++){
                     // Break into bytes
                     unsigned char bytes[2];
-                    bytes[0] = lMemory[i] >> 8;
-                    bytes[1] = lMemory[i] & 0xFF;
+                    if(little_endian){
+                        bytes[1] = lMemory[i] >> 8;
+                        bytes[0] = lMemory[i] & 0xFF;
+                    }else{
+                        bytes[0] = lMemory[i] >> 8;
+                        bytes[1] = lMemory[i] & 0xFF;
+                    }
 
                     // Write the bytes
                     out.write((char*) bytes, 2);

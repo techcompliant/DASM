@@ -22,9 +22,9 @@ namespace DAsmDriver{
         source_file*    next_file;
     };
 
-    int assemble(const char *infile, const char *outfile); // Takes char* for easy passing of arguments from argv
+    int assemble(const char *infile, const char *outfile, bool little_endian = true); // Takes char* for easy passing of arguments from argv
     bool getFile(std::string filename, std::stringstream &buffer);
     std::string changeOrAddFileExtension(std::string file, std::string new_extension);
-    
+
 }
 #endif
