@@ -67,16 +67,16 @@ namespace DAsm{
 
         bool dereference = false;
 
+        source = replaceString(source, "pick","[sp+"); // Bodge to support PICK
+        source = replaceString(source, "PICK","[sp+");
+
         if(source[0]=='['){
 
             source.erase(remove(source.begin(), source.end(), '['), source.end());
             source.erase(remove(source.begin(), source.end(), ']'), source.end());
 
             dereference = true;
-
         }
-
-
 
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
