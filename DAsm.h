@@ -54,10 +54,10 @@ namespace DAsm{
     std::string trimWS(std::string& s);
 
     //std::stoi is far too lenient wrt numbers with other stuff at the end
-    int     getNumber(std::string str, bool& number);
+    int         getNumber(std::string str, bool& number);
 
     //Function to split string based on regex and put in list. Default predicate is just non-emptiness
-    void    splitString(std::string& source, std::string splitRegex, std::list<std::string>& stringList,
+    void        splitString(std::string& source, std::string splitRegex, std::list<std::string>& stringList,
                         std::function<bool(std::string)> predicate = [](std::string str){return (str.size() > 0);});
 
     //Search/replace by regex
