@@ -8,6 +8,7 @@
 #include <regex>
 
 #include "DAsm.h"
+#include "Program.h"
 
 int assemble(const char *infile, const char *outfile); // Takes char* for easy passing of arguments from argv
 bool getFile(std::string filename, std::stringstream &buffer);

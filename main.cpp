@@ -5,6 +5,7 @@
 
 
 #include "DAsm.h"
+#include "Program.h"
 //The \ at the end of lines is to escape the line escape for better representation in editors
 std::string source =
 ";SPI Spy\n\
