@@ -99,6 +99,11 @@ bool getFile(std::string filename, std::stringstream &buffer) {
 
                     // TODO: catch include loops
 
+                    // Reuse end to trim the filename and add the path to allow relative including
+                    end = filename.find_last_of("/")+1;
+                    if(end > 0)
+                        included_filename = filename.substr(0, end) + included_filename;
+
                     // Recurse
                     if(!getFile(included_filename, buffer)) {
                         // Something went wrong including, Exit with failure
