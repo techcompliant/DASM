@@ -11,6 +11,7 @@
 #include "DAsm.h"
 #include "Program.h"
 
+char parseAssemblerFlags(std::string arg);
 int containsFlag(int argc, char** argv, std::string flag);
 void displayUsage(char* name);
 
@@ -24,8 +25,10 @@ namespace DAsmDriver{
         source_file*    included_file;
         source_file*    next_file;
     };
+
+    void setAssemblerFlags(DAsm::Program* program, char flags);
     int concat(const char *infile, std::string outfile, bool standard_output = false);
-    int assemble(const char *infile, std::string outfile, bool little_endian = true, bool hex_output = false, bool standard_output = false); // Takes char* for easy passing of arguments from argv
+    int assemble(const char *infile, std::string outfile, char dasm_flags = 0, bool little_endian = true, bool hex_output = false, bool standard_output = false); // Takes char* for easy passing of arguments from argv
 
     bool getFile(std::string filename, std::stringstream &buffer);
     std::string changeOrAddFileExtension(std::string file, std::string new_extension);

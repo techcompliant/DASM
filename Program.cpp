@@ -62,6 +62,7 @@ namespace DAsm{
         mIgnoreLabelCase = true;
         mArrangeChunks = false;
         mStrictDefineCommas = false;
+        mStrictDirectiveDots = false;
 
         mChunks.emplace_back();
         mInstructions = &(mChunks.back().mInstructions);
@@ -73,8 +74,8 @@ namespace DAsm{
 
         //Some default macros
         AddMacro("RET=SET PC, POP");
-        AddMacro(".asciiz = dat %0, 0");
-        AddMacro(".reserve = fill 0, %0");
+        AddMacro(".asciiz = .dat %0, 0");
+        AddMacro(".reserve = .fill 0, %0");
     }
 
 
@@ -159,6 +160,10 @@ namespace DAsm{
 
         std::string keyword = inOutParts.front();
 
+        // Stripping the keyword from a possible dot
+        if(keyword[0] == '.')
+            keyword = keyword.substr(1, keyword.size());
+
         keyword.erase(remove_if(keyword.begin(), keyword.end(),
                                 [](char x){return std::isspace(x,std::locale());}), keyword.end());
         transform(keyword.begin(), keyword.end(), keyword.begin(), ::toupper);
@@ -189,8 +194,13 @@ namespace DAsm{
 
     //Returns true if is a macro
     bool    Program::IsMacro(std::string keyword){
+        if(mStrictDirectiveDots && keyword[0] != '.')
+            return false; // Can't be a macro if it's not dotted
+
+        std::string undottedKeyword = keyword[0] == '.' ? keyword.substr(1, keyword.size()) : keyword;
+
         for(auto&& m : mMacros){
-            if(m.keyword == keyword){
+            if(m.keyword == undottedKeyword){
 
                 return true;
             }
@@ -201,6 +211,9 @@ namespace DAsm{
 
     std::string    Program::DoMacro(std::string keyword, std::list<std::string> args){
         std::string out;
+        std::string undottedKeyword = keyword[0] == '.' ? keyword.substr(1, keyword.size()) : keyword;
+
+
         for(auto&& m : mMacros){
             if(m.keyword == keyword){
                 out = m.format;

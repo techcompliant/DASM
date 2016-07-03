@@ -506,6 +506,10 @@ namespace DAsm{
                 mProgram->mStrictDefineCommas = value;
                 return;
             }
+            if(flag_str == "STRICTDIRECTIVEDOTS"){
+                mProgram->mStrictDirectiveDots = value;
+                return;
+            }
 
 
             mProgram->Error(std::string("Unknown flag:").append(flag_str));

@@ -9,6 +9,7 @@ int main(int argc, char** argv) {
 
     bool big_endian, standard_output = false;
     char output_type = 0; // 0:normal, 1:hex, 2:concat included
+    char dasm_flags = 0;
 
     int i;
 
@@ -27,6 +28,9 @@ int main(int argc, char** argv) {
             return 1;
         }
         output_type = 2;
+    }
+    if((i = containsFlag(argc, argv, "--assembler-flags")) || (i = containsFlag(argc, argv, "-f"))){
+        dasm_flags = parseAssemblerFlags(argv[i]);
     }
 
     if((i = containsFlag(argc, argv, "-o")) > 1) {
@@ -51,7 +55,36 @@ int main(int argc, char** argv) {
     if(output_type == 2)
         return DAsmDriver::concat(infile, outfile, standard_output);
 
-    return DAsmDriver::assemble(infile, outfile, !big_endian, output_type == 1, standard_output);
+    return DAsmDriver::assemble(infile, outfile, dasm_flags, !big_endian, output_type == 1, standard_output);
+}
+
+char parseAssemblerFlags(std::string arg){
+    char output = 0;
+
+    arg = arg.substr(arg.find_last_of("=") + 1, arg.size());
+
+    std::list<std::string> flags;
+    DAsm::splitString(arg, "[^a-zA-Z]+", flags);
+    for(auto flag : flags){
+        std::cerr << "Flag: \"" << flag << "\"" << std::endl;
+        if(flag == "IGNORELABELCASE"){
+            output |= 0x01;
+            continue;
+        }
+        if(flag == "ARRANGECHUNKS"){
+            output |= 0x02;
+            continue;
+        }
+        if(flag == "STRICTDEFINECOMMAS"){
+            output |= 0x04;
+            continue;
+        }
+        if(flag == "STRICTDIRECTIVEDOTS"){
+            output |= 0x08;
+            continue;
+        }
+    }
+    return output;
 }
 
 int containsFlag(int argc, char** argv, std::string flag){
@@ -65,8 +98,8 @@ int containsFlag(int argc, char** argv, std::string flag){
         if(plain_text_arg != plain_text_flag)
             continue;
 
-        if(!plain_text_arg){ // If the flag is short then check each char
-            for(int j = 1; t[j]; j++){
+        if(!plain_text_arg){ // If the flag is short then check each char until a '=' '
+            for(int j = 1; t[j] && t[j] != '='; j++){
                 if(flag[1] == t[j])
                     return i;
             }
@@ -86,10 +119,11 @@ void displayUsage(char* name){
     exec = exec.substr(exec.find_last_of("/") + 1, exec.size());
     std::clog << std::endl << "\tDAsm" << std::endl;
     std::clog << "Usage:" << std::endl;
-    std::clog << "  " << exec << " <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include]" << std::endl;
+    std::clog << "  " << exec << " <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include][[--assembler-flags||-f]=<flag1>[,-+.]<flag2>...]" << std::endl;
     std::clog << "Options:" << std::endl;
     std::clog << "  --big-endian  -b\tOutput in big-endian (inoperant in concat-include mode)"<< std::endl;
     std::clog << "  --standard-output  -s\tCopy the output in stdout (inoperant in normal mode)"<< std::endl;
+    std::clog << "  --assembler-flags  -f\tInvert default state of DAsm flags (inoperant in concat-include mode)"<< std::endl;
     std::clog << "  --hex-output  -H\tOutput the binary as an plain text hex file"<< std::endl;
     std::clog << "  --concat-include -C\tOutput the concatenation of included source files"<< std::endl;
 }
@@ -230,7 +264,16 @@ namespace DAsmDriver{
         return 1;
     }
 
-    int assemble(const char *infile, std::string outfile, bool little_endian, bool hex_output, bool standard_output) {
+    void setAssemblerFlags(DAsm::Program* program, char flags){
+        std:std::cerr << "Flags: " << (0 + flags) << std::endl;
+        program->mIgnoreLabelCase = (flags & 0x01) ? !program->mIgnoreLabelCase : program->mIgnoreLabelCase;
+        program->mArrangeChunks = (flags & 0x02) ? !program->mArrangeChunks : program->mArrangeChunks;
+        program->mStrictDefineCommas = (flags & 0x04) ? !program->mStrictDefineCommas : program->mStrictDefineCommas;
+        program->mStrictDirectiveDots = (flags & 0x08) ? !program->mStrictDirectiveDots : program->mStrictDirectiveDots;
+
+    }
+
+    int assemble(const char *infile, std::string outfile, char dasm_flags, bool little_endian, bool hex_output, bool standard_output) {
         // Load up the source code.
         std::stringstream buffer;
 
@@ -238,7 +281,7 @@ namespace DAsmDriver{
 
         if(origin_file) {
             DAsm::Program lProgram;
-
+            setAssemblerFlags(&lProgram, dasm_flags);
             if(lProgram.LoadSource(buffer.str())){
                 // It compiled.
                 unsigned long pSize;

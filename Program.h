@@ -62,6 +62,7 @@ namespace DAsm{
             ProgramChunk*                       mCurChunk;
 
             bool                                mStrictDefineCommas;
+            bool                                mStrictDirectiveDots;
             bool                                mIgnoreLabelCase; //When true, all labels are converted to uppercase
             bool                                mArrangeChunks;//When true, .orgs control actual position of code in output
     };
