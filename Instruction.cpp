@@ -363,7 +363,7 @@ namespace DAsm{
         final_split_list.pop_front();
         is_quote_list.pop_front();
         //Next bit handles DAT
-        if(first_str=="DAT"||first_str==".DAT"){
+        if(first_str==".DAT"|| (first_str=="DAT" && !mProgram->mStrictDirectiveDots)){
             while(final_split_list.size()){
                 std::string cur_str = *final_split_list.begin();
                 bool is_quote = *is_quote_list.begin();
@@ -401,7 +401,7 @@ namespace DAsm{
         }
 
         //Handles the org stuff, splitting code into chunks
-        if(first_str=="ORG"||first_str==".ORG"){
+        if(first_str==".ORG"|| (first_str=="ORG" && !mProgram->mStrictDirectiveDots)){
             if(final_split_list.size()==0){
                 Error(std::string("Insufficient operands: ").append(source));
                 return;
@@ -429,8 +429,8 @@ namespace DAsm{
             return;
         }
         //Handles defines, which are basically like labels
-        if(first_str=="DEF"||first_str==".DEF"||
-           first_str=="DEFINE"||first_str==".DEFINE"){
+        if(first_str==".DEF"|| (first_str=="DEF" && !mProgram->mStrictDirectiveDots)||
+           first_str==".DEFINE"|| (first_str=="DEFINE" && !mProgram->mStrictDirectiveDots)){
 
             if(final_split_list.size()==1 && !mProgram->mStrictDefineCommas){
                 std::list<std::string> split_space;
@@ -468,7 +468,7 @@ namespace DAsm{
             return;
         }
 
-        if(first_str=="FILL"||first_str==".FILL"){
+        if(first_str==".FILL"|| (first_str=="FILL" && !mProgram->mStrictDirectiveDots)){
             if(final_split_list.size()<2){
                 Error(std::string("Insufficient operands: ").append(source));
                 return;
@@ -484,7 +484,7 @@ namespace DAsm{
             return;
         }
         //Passes to macro system
-        if(first_str=="FLAG"||first_str==".FLAG"){
+        if(first_str==".FLAG"|| (first_str=="FLAG" && !mProgram->mStrictDirectiveDots)){
             std::string flag_str = trimWS(final_split_list.front());
             final_split_list.pop_front();
             if(final_split_list.size()==0){
@@ -517,7 +517,7 @@ namespace DAsm{
         }
 
         //Passes to macro system
-        if(first_str=="MACRO"||first_str==".MACRO"){
+        if(first_str==".MACRO"|| (first_str=="MACRO" && !mProgram->mStrictDirectiveDots)){
             std::string source_upper = source;
             transform(source_upper.begin(), source_upper.end(), source_upper.begin(), ::toupper);
             //Preserve original case
@@ -525,7 +525,7 @@ namespace DAsm{
             return;
         }
 
-        if(first_str=="OPCODE"||first_str==".OPCODE"){
+        if(first_str==".OPCODE"|| (first_str=="OPCODE" && !mProgram->mStrictDirectiveDots)){
             if(final_split_list.size()<3){
                 mProgram->Error(std::string("Insufficient arguments:").append(source));
                 return;
