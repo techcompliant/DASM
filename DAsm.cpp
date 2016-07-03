@@ -662,10 +662,17 @@ namespace DAsm{
             lOp = GetSpecialOpcode(first_str);
             lWord |= lOp << 5;
             if(final_split_list.size()<1){
-                Error(first_str.append(std::string(" opcode requires an operand")));
-                return;
+                // These opcodes all take 1 argument
+                 if(lOp != 0x0B){
+                     // Opcodes that aren't RFI actually need their arguments
+                     Error(first_str.append(std::string(" opcode requires an operand")));
+                     return;
+                 }
+                 // RFI (0x0B), which doesn't use its argument at all, can take
+                 // no arguments. So if we have no argument for RFI, do nothing.
+            }else{
+                lWord |= ParseArg(*final_split_list.begin(), true) << 10;
             }
-            lWord |= ParseArg(*final_split_list.begin(), true) << 10;
         }else{
             if(final_split_list.size()<2){
                 Error(first_str.append(std::string(" requires two operands")));
