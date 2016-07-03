@@ -4,21 +4,94 @@
 
 int main(int argc, char** argv) {
 
-    const char *infile, *outfile;
+    const char *infile;
+    std::string outfile;
 
-    if(argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " input.asm [output.bin]" << std::endl;
+    bool big_endian, standard_output = false;
+    char output_type = 0; // 0:normal, 1:hex, 2:concat included
+
+    int i;
+
+    if(argc < 2 || containsFlag(argc, argv, "--help")) {
+        std::cerr << containsFlag(argc, argv, "--help") << std::endl;
+        displayUsage(argv[0]);
         return 1;
-    } else if(argc < 3) {
-        infile = argv[1];
-        outfile = DAsmDriver::changeOrAddFileExtension(argv[1], "bin").c_str();
-        std::cout << "Outputing to " << outfile << std::endl;
-    } else {
-        infile = argv[1];
-        outfile = argv[2];
+    }
+    big_endian = containsFlag(argc, argv, "--big-endian") != 0 || containsFlag(argc, argv, "-b") != 0;
+    standard_output = containsFlag(argc, argv, "--standard-output") != 0 || containsFlag(argc, argv, "-s") != 0;
+    output_type = (containsFlag(argc, argv, "--hex-output") != 0 || containsFlag(argc, argv, "-H") != 0) ? 1 : 0;
+    if(containsFlag(argc, argv, "--concat-include") || containsFlag(argc, argv, "-C") != 0){
+        if(output_type){
+            std::cerr << std::endl << "Hex-output mode and concat-include mode are mutually exclusives." << std::endl;
+            displayUsage(argv[0]);
+            return 1;
+        }
+        output_type = 2;
     }
 
-    return DAsmDriver::assemble(infile, outfile);
+    if((i = containsFlag(argc, argv, "-o")) > 1) {
+        i++;
+        if(i >= argc){
+            std::cerr << std::endl << "Please enter a output_file name after the flag \"-o\"." << std::endl;
+            displayUsage(argv[0]);
+            return 1;
+        }
+        infile = argv[1];
+        outfile = argv[i];
+    } else {
+        infile = argv[1];
+        outfile = DAsmDriver::changeOrAddFileExtension(argv[1], !output_type ? "bin" : output_type == 1 ? "hex" : "cat.dasm").c_str();
+
+        outfile = outfile.substr(outfile.find_last_of("\\") + 1, outfile.size()); // Removing path
+        outfile = outfile.substr(outfile.find_last_of("/") + 1, outfile.size());
+
+        std::cerr << "Outputing to " << outfile << std::endl;
+    }
+
+    if(output_type == 2)
+        return DAsmDriver::concat(infile, outfile, standard_output);
+
+    return DAsmDriver::assemble(infile, outfile, !big_endian, output_type == 1, standard_output);
+}
+
+int containsFlag(int argc, char** argv, std::string flag){
+    std::string t;
+    bool plain_text_flag, plain_text_arg;
+    plain_text_flag = flag[0] == '-' && flag[1] == '-';
+
+    for(int i = 1; i < argc; i++){
+        t = argv[i];
+        plain_text_arg = argv[i][0] == '-' && argv[i][1] == '-';
+        if(plain_text_arg != plain_text_flag)
+            continue;
+
+        if(!plain_text_arg){ // If the flag is short then check each char
+            for(int j = 1; t[j]; j++){
+                if(flag[1] == t[j])
+                    return i;
+            }
+        }else{
+            for(int j = 0; flag[j]; j++){
+                if(flag[j] == t[j] && !flag[j + 1])
+                    return i;
+            }
+        }
+    }
+    return 0;
+}
+
+void displayUsage(char* name){
+    std::string exec = name;
+    exec = exec.substr(exec.find_last_of("\\") + 1, exec.size());
+    exec = exec.substr(exec.find_last_of("/") + 1, exec.size());
+    std::clog << std::endl << "\tDAsm" << std::endl;
+    std::clog << "Usage:" << std::endl;
+    std::clog << "  " << exec << " <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include]" << std::endl;
+    std::clog << "Options:" << std::endl;
+    std::clog << "  --big-endian  -b\tOutput in big-endian (inoperant in concat-include mode)"<< std::endl;
+    std::clog << "  --standard-output  -s\tCopy the output in stdout (inoperant in normal mode)"<< std::endl;
+    std::clog << "  --hex-output  -H\tOutput the binary as an plain text hex file"<< std::endl;
+    std::clog << "  --concat-include -C\tOutput the concatenation of included source files"<< std::endl;
 }
 
 namespace DAsmDriver{
@@ -37,7 +110,7 @@ namespace DAsmDriver{
             return nullptr; // Exit with failure
         }
 
-        std::cerr << "Loading " << filename << std::endl;
+        std::clog << "Loading " << filename << std::endl;
 
         size_t line_number = 0;
         source_file* output = new source_file;
@@ -133,7 +206,31 @@ namespace DAsmDriver{
         return output;
     }
 
-    int assemble(const char *infile, const char *outfile, bool little_endian) {
+    int concat(const char *infile, std::string outfile, bool standard_output){
+        std::stringstream buffer;
+        source_file* origin_file = getFile(infile, 1, buffer);
+        if(origin_file) {
+            std::ofstream out(outfile, std::ios::binary | std::ios::out);
+
+            if(!out.good()) {
+                // Cannot write to the output file
+                std::cerr << "Cannot open file for writing: " << outfile << std::endl;
+                return 1;
+            }
+            out << buffer.str();
+            out.close();
+
+            if(standard_output){
+                std::clog << "Displaying " << outfile << std::endl;
+                std::cout << buffer.str() << std::endl;
+            }
+
+            return 0;
+        }
+        return 1;
+    }
+
+    int assemble(const char *infile, std::string outfile, bool little_endian, bool hex_output, bool standard_output) {
         // Load up the source code.
         std::stringstream buffer;
 
@@ -157,6 +254,9 @@ namespace DAsmDriver{
                     return 1;
                 }
 
+                if(standard_output)
+                    std::clog << "Displaying " << outfile << std::endl;
+
                 // Dump the program to disk in big endian byte order
                 for(int i = 0; i < pSize; i++){
                     // Break into bytes
@@ -170,10 +270,18 @@ namespace DAsmDriver{
                     }
 
                     // Write the bytes
-                    out.write((char*) bytes, 2);
+                    if(hex_output){
+                        buffer.str("");
+                        buffer << (i ? " 0x" : "0x") << std::setfill('0') << std::setw(4) << std::hex << int(*((DAsm::word*)bytes));
+                        if(standard_output)
+                            std::cout << buffer.str();
+                        out << buffer.str();
+                    }else
+                        out.write((char*) bytes, 2);
                 }
-                std::cout << "Wrote "<< pSize << " words to " << outfile << std::endl;
                 delete lMemory;
+                std::cout << std::endl;
+                std::clog << "Wrote "<< pSize << " words to " << outfile << std::endl;
             }else{
                 for(auto&& error : lProgram.mErrors){
                     std::cerr << "Error: " << error << std::endl;
