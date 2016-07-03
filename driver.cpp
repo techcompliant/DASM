@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     int i;
 
     if(argc < 2 || containsFlag(argc, argv, "--help")) {
-        std::cerr << containsFlag(argc, argv, "--help") << std::endl;
+        std::cerr << std::endl << "Please enter a input_file name." << std::endl;
         displayUsage(argv[0]);
         return 1;
     }
@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         outfile = outfile.substr(outfile.find_last_of("\\") + 1, outfile.size()); // Removing path
         outfile = outfile.substr(outfile.find_last_of("/") + 1, outfile.size());
 
-        std::cerr << "Outputing to " << outfile << std::endl;
+        std::clog << "Outputing to " << outfile << std::endl;
     }
 
     if(output_type == 2)
