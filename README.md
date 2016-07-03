@@ -20,10 +20,11 @@
 ##Usage
 ```
 Usage:
-  dasm.exe <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include]
+  dasm.exe <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include][--assembler-flags||-f]=<flag1>[,-+.]<flag2>...]
 Options:
-  --big-endian  -b      Output in big-endian (inoperant in concat-include mode)
-  --standard-output  -s Copy the output in stdout (inoperant in normal mode)
-  --hex-output  -H      Output the binary as an plain text hex file
-  --concat-include -C   Output the concatenation of included source files
+  --big-endian  -b          Output in big-endian (inoperant in concat-include mode)
+  --standard-output  -s     Copy the output in stdout (inoperant in normal mode)
+  --assembler-flags=  -f=   Invert default state of DAsm flags (inoperant in concat-include mode)
+  --hex-output  -H          Output the binary as an plain text hex file
+  --concat-include -C       Output the concatenation of included source files
   ```
