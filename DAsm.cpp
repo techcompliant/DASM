@@ -87,10 +87,21 @@ namespace DAsm{
         return source;
     }
 
+    std::string wordToString(word w, char* prefix){
+        std::string out = "0000";
+        int i = 3;
+        while(w != 0){
+            out[i] = w % 0xF;
+            if(out[i] < 10)
+                out[i] += '0';
+            else
+                out[i] += 'A' - 10;
+            i--;
+            w /= 0xF;
+        }
 
-
-
-
-
-
+        if(prefix != nullptr)
+            return prefix + out;
+        return out;
+    }
 }

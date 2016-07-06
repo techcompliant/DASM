@@ -84,8 +84,41 @@ namespace DAsm{
     Program::~Program(){
     }
 
-    void    Program::Error(std::string nError){
-        mErrors.push_back(nError);
+    void    Program::Error(std::string message, Instruction* source){
+        error_entry entry = {message, (source != nullptr ? source->mLineNumber : 0), source};
+        mErrors.push_back(entry);
+    }
+
+    void    Program::Error(std::string message, unsigned int line_number){
+        Instruction* source = nullptr;
+        for(auto&& inst : *mInstructions){
+            if(inst.mLineNumber == line_number)
+                source = &inst;
+        }
+        for(auto&& c : mChunks){
+            for(auto&& inst : c.mInstructions){
+                if(inst.mLineNumber == line_number)
+                    source = &inst;
+            }
+        }
+        error_entry entry = {message, line_number, source};
+        mErrors.push_back(entry);
+    }
+
+    void    Program::updateError(error_entry &entry){
+        if(entry.line == 0)
+            return;
+        entry.source = nullptr;
+        for(auto&& inst : *mInstructions){
+            if(inst.mLineNumber == entry.line)
+                entry.source = &inst;
+        }
+        for(auto&& c : mChunks){
+            for(auto&& inst : c.mInstructions){
+                if(inst.mLineNumber == entry.line)
+                    entry.source = &inst;
+            }
+        }
     }
 
 
@@ -151,7 +184,6 @@ namespace DAsm{
 
 
     void    Program::AddMacro(std::string nMacro){
-        macro lMacro;
         //Split around the first "="
         std::list<std::string> inOutParts;
         splitString(nMacro,"=",inOutParts);
@@ -160,16 +192,18 @@ namespace DAsm{
 
         std::string keyword = inOutParts.front();
 
-        // Stripping the keyword from a possible dot
-        if(keyword[0] == '.')
-            keyword = keyword.substr(1, keyword.size());
 
         keyword.erase(remove_if(keyword.begin(), keyword.end(),
                                 [](char x){return std::isspace(x,std::locale());}), keyword.end());
         transform(keyword.begin(), keyword.end(), keyword.begin(), ::toupper);
 
+        // Stripping the keyword from a possible dot
+        if(keyword[0] == '.')
+            keyword = keyword.substr(1, keyword.size());
+
         inOutParts.pop_front();
 
+        // Concat the rest of the list
         std::string outStr;
         bool first = true;
         for(auto&& p : inOutParts){
@@ -179,7 +213,7 @@ namespace DAsm{
             first=false;
         }
 
-
+        // Redefine the macro if it already exists
         for(auto&& m: mMacros){
             if(m.keyword == keyword){
                 m.format = outStr;
@@ -187,6 +221,7 @@ namespace DAsm{
             }
         }
 
+        macro lMacro;
         lMacro.keyword = keyword;
         lMacro.format = outStr;
         mMacros.push_back(lMacro);
@@ -400,17 +435,20 @@ namespace DAsm{
     }
 
     //Load and assemble program from source
-    bool    Program::LoadSource(std::string source){
+    bool    Program::LoadSource(std::string source, bool ingnoreEmptyLines){
         //Split into lines
         std::list<std::string> lines;
-        splitString(source, "\n+", lines);
+        if(ingnoreEmptyLines)
+            splitString(source, "[\\r\\n]+", lines);
+        else
+            splitString(source, "\n", lines, [](std::string str){return true;});
 
-
+        size_t line = 0;
         //Where actual parsing happens
         for(auto&& l : lines){
-            mInstructions->emplace_back(l);
+            line++;
+            mInstructions->emplace_back(Instruction(l, line));
         }
-
         for(auto&& t : mDefineOnlyTargets){
             *t.target = Evaluate(t.expression);
         }
@@ -423,10 +461,11 @@ namespace DAsm{
 
                 if(c.mHasTargetPos){
                     bool found = false;
-                    for(auto i = mOrdered.begin(); i!= mOrdered.end()&&!found;i++){
+                    for(auto i = mOrdered.begin(); i!= mOrdered.end();i++){
                         if(c.mTargetPos<(*i)->mTargetPos){
                             mOrdered.insert(i, &c);
                             found=true;
+                            break;
                         }
                     }
                     if(!found)
@@ -443,7 +482,7 @@ namespace DAsm{
                 ProgramChunk*   lChunk = &(mChunks.back());
                 lChunk->mTargetPos=0;
                 lChunk->mHasTargetPos=true;
-                mOrdered.insert(mOrdered.begin(),lChunk);
+                mOrdered.push_front(lChunk);
             }
 
             //Pad spaces between chunks with "0"
@@ -459,7 +498,9 @@ namespace DAsm{
                     int padding = (*n)->mTargetPos - ((*i)->mTargetPos + (*i)->GetLength());
 
                     if(padding<0){
-                        Error(std::string("Invalid chunk layout:").append(std::to_string((*i)->mTargetPos)));
+                        std::string message = "Invalid chunk layout [" + wordToString((*i)->mTargetPos) +"-" + wordToString((*i)->mTargetPos+(*i)->GetLength()) + "]";
+                        message += " intersect with ["+ wordToString((*n)->mTargetPos) +"-" + wordToString((*n)->mTargetPos+(*n)->GetLength()) + "]";
+                        Error(message, ((*n)->mInstructions.size() > 0 ? (*n)->mInstructions.front().mLineNumber : 0));
                     }else{
                         (*i)->mInstructions.emplace_back();
                         (*i)->mInstructions.back().Fill(0,padding);
@@ -478,7 +519,7 @@ namespace DAsm{
             //This is useful if your code moves itself around.
             int start = 0;
             for(auto&& c : mChunks){
-                    if(!c.mHasTargetPos){
+                if(!c.mHasTargetPos){
                     //Tell it it is where it actually is.
                     c.mTargetPos = start;
                     c.mHasTargetPos = true;
@@ -513,23 +554,37 @@ namespace DAsm{
     }
 
     //Outputs in hex format for easy debugging
-    std::string  Program::ToHex(std::string seperator){
+    std::string  Program::ToHex(std::string firstWordSeparator, std::string wordSeparator, std::string instructionSeparator, bool littleEndian, bool ignoreEmptyIntructions){
         std::stringstream result;
+        bool first_instruction, first_word;
+        first_instruction = true;
         for(auto&& o : mOrdered)
-            for(auto&& i : o->mInstructions)
-                for(auto&& w : i.mWords)
-                    result << seperator << std::setfill('0') << std::setw(4) << std::hex << int(w);
+            for(auto&& i : o->mInstructions){
+                if(ignoreEmptyIntructions && i.mWords.size() == 0)
+                    continue;
+                if(!first_instruction){
+                    result << instructionSeparator;
+                }
+                first_word = true;
+                for(auto&& w : i.mWords){
+                    if(!littleEndian)
+                        w = ((w & 0xFF00) >> 8) + (w & 0x00FF);
+                    result << (first_word ? firstWordSeparator : wordSeparator) << std::setfill('0') << std::setw(4) << std::hex << int(w);
+                    first_word = false;
+                }
+                first_instruction = false;
+            }
 
         return result.str();
     }
 
     //Outputs a pojnter to a block of memory containing program, optional max size
     // and program size return, note, Program object will not free this memory upon deletion
-    word*   Program::ToBlock(unsigned long maxSize){
+    word*   Program::ToBlock(unsigned long maxSize, bool little_endian){
         unsigned long actual_size;
-        return ToBlock(maxSize, actual_size);
+        return ToBlock(maxSize, actual_size, little_endian);
     }
-    word*   Program::ToBlock(unsigned long maxSize, unsigned long& programSize){
+    word*   Program::ToBlock(unsigned long maxSize, unsigned long& programSize, bool little_endian){
         if(GetLength() > maxSize)
             Error(std::string("Program size exceeds DCPU memory!"));
         word* memory = new word[maxSize]();
@@ -537,8 +592,11 @@ namespace DAsm{
         unsigned long cur_pos = 0;
         for(auto&& o : mOrdered)
             for(auto&& i : o->mInstructions)
-                for(auto&& w : i.mWords)
+                for(auto&& w : i.mWords){
+                    if(!little_endian)
+                        w = ((w & 0xFF00) >> 8) + (w & 0x00FF);
                     memory[cur_pos++] = w;
+                }
 
         programSize = GetLength();
         return memory;

@@ -15,7 +15,7 @@ namespace DAsm{
         public:
 
                                                 Instruction();
-                                                Instruction(std::string source, unsigned int recursion_counter = 0);
+                                                Instruction(std::string source, unsigned int line_number = 0, unsigned int recursion_counter = 0);
             virtual                             ~Instruction();
 
             void                                LoadSource(std::string source, unsigned int recursion_counter = 0);
@@ -30,6 +30,9 @@ namespace DAsm{
             opcode                              GetSpecialOpcode(std::string str);
 
             void                                Error(std::string nError);
+
+            unsigned int                        mLineNumber;
+            std::string                         mSourceLine;
 
             std::list<word>                     mWords;
 

@@ -10,12 +10,18 @@ namespace DAsm{
     class Instruction;
     class ProgramChunk;
 
+    struct error_entry{
+        std::string     message;
+        unsigned int    line;
+        Instruction*    source;
+    };
+
     class   Program{
         public:
                                                 Program();
             virtual                             ~Program();
 
-            bool                                LoadSource(std::string source);
+            bool                                LoadSource(std::string source, bool ingnoreEmptyLines = true);
 
             void                                AddExpressionTarget(std::string nExpression,word* nTarget);
 
@@ -30,8 +36,6 @@ namespace DAsm{
             unsigned int                        GetLength();
             unsigned int                        mLength;
 
-            std::string                         ToHex(std::string seperator = " 0x");
-
             int                                 Evaluate(std::string expression, bool* errorFlag=nullptr);
 
             bool                                IsMacro(std::string keyword);
@@ -40,11 +44,15 @@ namespace DAsm{
 
             std::list<macro>                    mMacros;
 
-            word*                               ToBlock(unsigned long maxSize = DCPU_RAM_SIZE);
-            word*                               ToBlock(unsigned long maxSize, unsigned long& programSize);
+            std::string                         ToHex(std::string firstWordSeparator = "0x", std::string wordSeparator = " 0x", std::string instructionSeparator = "\n", bool littleEndian = true, bool ignoreEmptyIntructions = true);
 
-            void                                Error(std::string nError);
-            std::list<std::string>              mErrors;
+            word*                               ToBlock(unsigned long maxSize = DCPU_RAM_SIZE, bool little_endian = true);
+            word*                               ToBlock(unsigned long maxSize, unsigned long& programSize, bool little_endian = true);
+
+            void                                Error(std::string message, Instruction* source = nullptr);
+            void                                Error(std::string message, unsigned int line_number);
+            void                                updateError(error_entry &entry);
+            std::list<error_entry>              mErrors;
 
             std::list<ProgramChunk>             mChunks;
             std::list<ProgramChunk*>            mOrdered;

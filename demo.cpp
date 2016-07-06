@@ -6,6 +6,7 @@
 
 #include "DAsm.h"
 #include "Program.h"
+#include "Instruction.h"
 //The \ at the end of lines is to escape the line escape for better representation in editors
 std::string source =
 ";SPI Spy\n\
@@ -285,7 +286,11 @@ int main()
         delete lMemory;
     }else{
         for(auto&& error : lProgram->mErrors){
-            std::cerr << "Error: " << error << std::endl;
+            if(error.source->mLineNumber == 0){
+                std::cerr << "Error : " << error.message << std::endl;
+            }else{
+                std::cerr << "Error at line " << std::setfill('0') << std::setw(3) << int(error.source->mLineNumber) << " : " << error.message << std::endl;
+            }
         }
 
     }

@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #ifndef DASM_H
 #define DASM_H
 
+#include <iostream>
 #include <cstdint>
 #include <list>
 #include <string>
@@ -65,6 +66,8 @@ namespace DAsm{
 
     //Escape a string so it can be matched as a regex
     std::string regexEscape(std::string source);
+
+    std::string wordToString(word w, char* prefix = nullptr);
 }
 
 #endif // DASM_H

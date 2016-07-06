@@ -12,7 +12,9 @@ namespace DAsm{
     Instruction::Instruction(){
     }
 
-    Instruction::Instruction(std::string source, unsigned int recursion_counter){
+    Instruction::Instruction(std::string source, unsigned int line_number, unsigned int recursion_counter){
+        mLineNumber = line_number;
+        mSourceLine = source;
         LoadSource(source, recursion_counter);
     }
 
@@ -22,7 +24,7 @@ namespace DAsm{
 
 
     void    Instruction::Error(std::string nError){
-        mProgram->Error(nError);
+        mProgram->Error(nError, mLineNumber);
     }
 
 
