@@ -31,10 +31,10 @@ namespace DAsmDriver{
 
     std::string getColorTag(int color);
     void setAssemblerFlags(DAsm::Program* program, char flags);
-    int concat(const char *infile, std::string outfile, bool standard_output = false, bool file_tracability = false, bool full_tracability = false);
+    int concat(const char *infile, std::string outfile, bool standard_output = false, bool file_traceability = false, bool full_traceability = false);
     std::string concatWithFileDisplay(std::string concatSources, source_file* origin_fil, bool relative_path = false);
 
-    int assembleToHex(const char *infile, std::string outfile, char dasm_flags = 0, bool little_endian = true, bool standard_output = false, bool file_tracability = false, bool full_tracability = false);
+    int assembleToHex(const char *infile, std::string outfile, char dasm_flags = 0, bool little_endian = true, bool standard_output = false, bool file_traceability = false, bool full_traceability = false);
 
     int assembleToBinary(const char *infile, std::string outfile, char dasm_flags = 0, bool little_endian = true, bool standard_output = false);
 

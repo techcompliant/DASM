@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
     const char *infile;
     std::string outfile;
 
-    bool big_endian, standard_output, file_tracability, full_tracability = 0;
+    bool big_endian, standard_output, file_traceability, full_traceability = 0;
     char output_type = 0; // 0:normal, 1:hex, 2:concat included
     char dasm_flags = 0;
 
@@ -22,8 +22,8 @@ int main(int argc, char** argv) {
 
     big_endian = containsFlag(argc, argv, "--big-endian") != 0 || containsFlag(argc, argv, "-b") != 0;
     standard_output = containsFlag(argc, argv, "--standard-output") != 0 || containsFlag(argc, argv, "-s") != 0;
-    full_tracability = containsFlag(argc, argv, "--file-full-tracability") != 0 || containsFlag(argc, argv, "-T") != 0;
-    file_tracability = full_tracability ||containsFlag(argc, argv, "--file-tracability") != 0 || containsFlag(argc, argv, "-t") != 0;
+    full_traceability = containsFlag(argc, argv, "--file-full-traceability") != 0 || containsFlag(argc, argv, "-T") != 0;
+    file_traceability = full_traceability ||containsFlag(argc, argv, "--file-traceability") != 0 || containsFlag(argc, argv, "-t") != 0;
     output_type = (containsFlag(argc, argv, "--hex-output") != 0 || containsFlag(argc, argv, "-H") != 0) ? 1 : 0;
     if(containsFlag(argc, argv, "--concat-include") || containsFlag(argc, argv, "-C") != 0){
         if(output_type){
@@ -63,9 +63,9 @@ int main(int argc, char** argv) {
         case 0:
             return DAsmDriver::assembleToBinary(infile, outfile, dasm_flags, !big_endian, standard_output);
         case 1:
-            return DAsmDriver::assembleToHex(infile, outfile, dasm_flags, !big_endian, standard_output, file_tracability, full_tracability);
+            return DAsmDriver::assembleToHex(infile, outfile, dasm_flags, !big_endian, standard_output, file_traceability, full_traceability);
         case 2:
-            return DAsmDriver::concat(infile, outfile, standard_output, file_tracability, full_tracability);
+            return DAsmDriver::concat(infile, outfile, standard_output, file_traceability, full_traceability);
     }
 }
 
@@ -144,13 +144,13 @@ void displayUsage(char* name){
     std::clog << "Usage:" << std::endl;
     std::clog << "  " << exec << " <input_file> [-bsHC] [-o output_file][--big-endian][--hex-output/concat-include][[--assembler-flags||-f]=<flag1>[,-+.]<flag2>...]" << std::endl;
     std::clog << "Options:" << std::endl;
-    std::clog << std::setw(30) << "  --big-endian  -b" << "Output in big-endian (inoperant in concat-include mode)"<< std::endl;
-    std::clog << std::setw(30) << "  --standard-output  -s" << "Copy the output in stdout (inoperant in normal mode)"<< std::endl;
-    std::clog << std::setw(30) << "  --file-tracability -t" <<"Output the concatenation of included source files with filename and line (inoperant in normal mode)"<< std::endl;
-    std::clog << std::setw(30) << "  --file-full-tracability -T" <<"Output the concatenation of included source files with relative path and filename and line (inoperant in normal mode)(overrides non-full mode)"<< std::endl;
+    std::clog << std::setw(30) << "  --big-endian  -b" << "Output in big-endian (inoperative in concat-include mode)"<< std::endl;
+    std::clog << std::setw(30) << "  --standard-output  -s" << "Copy the output in stdout (inoperative in normal mode)"<< std::endl;
+    std::clog << std::setw(30) << "  --file-traceability -t" <<"Output the concatenation of included source files with filename and line (inoperative in normal mode)"<< std::endl;
+    std::clog << std::setw(30) << "  --file-full-traceability -T" <<"Output the concatenation of included source files with relative path and filename and line (inoperative in normal mode)(overrides non-full mode)"<< std::endl;
 
 
-    std::clog << std::setw(30) << "  --assembler-flags=  -f=" << "Invert default state of DAsm flags (inoperant in concat-include mode)(can be used multiple times)"<< std::endl;
+    std::clog << std::setw(30) << "  --assembler-flags=  -f=" << "Invert default state of DAsm flags (inoperative in concat-include mode)(can be used multiple times)"<< std::endl;
 
     std::clog << std::setw(30) << "  --hex-output  -H" << "Output the binary as an plain text hex file"<< std::endl;
     std::clog << std::setw(30) << "  --concat-include -C" <<"Output the concatenation of included source files"<< std::endl;
@@ -313,7 +313,7 @@ namespace DAsmDriver{
         return path;
     }
 
-    int concat(const char *infile, std::string outfile, bool standard_output, bool file_tracability, bool full_tracability){
+    int concat(const char *infile, std::string outfile, bool standard_output, bool file_traceability, bool full_traceability){
         std::stringstream buffer;
         source_file* origin_file = getFile(infile, 1, buffer);
         if(origin_file) {
@@ -324,8 +324,8 @@ namespace DAsmDriver{
                 std::cerr << "Cannot open file for writing: " << outfile << std::endl;
                 return 1;
             }
-            if(file_tracability || full_tracability)
-                buffer.str(concatWithFileDisplay(buffer.str(), origin_file, full_tracability));
+            if(file_traceability || full_traceability)
+                buffer.str(concatWithFileDisplay(buffer.str(), origin_file, full_traceability));
             out << buffer.str();
             out.close();
 
@@ -408,7 +408,7 @@ namespace DAsmDriver{
 
     }
 
-    int assembleToHex(const char *infile, std::string outfile, char dasm_flags, bool little_endian, bool standard_output, bool file_tracability, bool full_tracability){
+    int assembleToHex(const char *infile, std::string outfile, char dasm_flags, bool little_endian, bool standard_output, bool file_traceability, bool full_traceability){
         // Load up the source code.
         std::stringstream buffer;
 
@@ -431,8 +431,8 @@ namespace DAsmDriver{
 
                 //The parameters in this call are optional
                 buffer.str(lProgram.ToHex("0x", " 0x", "\n", little_endian, false));
-                if(file_tracability || full_tracability)
-                    buffer.str(concatWithFileDisplay(buffer.str(), origin_file, full_tracability));
+                if(file_traceability || full_traceability)
+                    buffer.str(concatWithFileDisplay(buffer.str(), origin_file, full_traceability));
                 buffer.clear();
                 out << buffer.str();
                 out.close();
@@ -675,7 +675,6 @@ namespace DAsmDriver{
             }else{
                 std::cerr << "Error "<< (error.source == nullptr ? "" : std::to_string(error.source->mLineNumber) + " ") <<": " << error.message << std::endl;
             }
-
         }
     }
 }
