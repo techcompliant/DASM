@@ -13,33 +13,34 @@ int main(int argc, char** argv) {
 
     unsigned int i;
 
-    if(argc < 2 || containsFlag(argc, argv, "--help", 0)) {
+    if(argc < 2 || containsFlag(argc, argv, "--help", 0) != argc) {
         std::cerr << std::endl << "Please enter a input_file name." << std::endl;
         displayUsage(argv[0]);
         return 1;
     }
 
-
-    big_endian = containsFlag(argc, argv, "--big-endian") != 0 || containsFlag(argc, argv, "-b") != 0;
-    standard_output = containsFlag(argc, argv, "--standard-output") != 0 || containsFlag(argc, argv, "-s") != 0;
-    full_traceability = containsFlag(argc, argv, "--file-full-traceability") != 0 || containsFlag(argc, argv, "-T") != 0;
-    file_traceability = full_traceability ||containsFlag(argc, argv, "--file-traceability") != 0 || containsFlag(argc, argv, "-t") != 0;
-    output_type = (containsFlag(argc, argv, "--hex-output") != 0 || containsFlag(argc, argv, "-H") != 0) ? 1 : 0;
-    if(containsFlag(argc, argv, "--concat-include") || containsFlag(argc, argv, "-C") != 0){
-        if(output_type){
-            std::cerr << std::endl << "Hex-output mode and concat-include mode are mutually exclusives." << std::endl;
-            displayUsage(argv[0]);
-            return 1;
+    if(argc > 2){
+        big_endian = containsFlag(argc, argv, "--big-endian") != argc || containsFlag(argc, argv, "-b") != argc;
+        standard_output = containsFlag(argc, argv, "--standard-output") != argc || containsFlag(argc, argv, "-s") != argc;
+        full_traceability = containsFlag(argc, argv, "--file-full-traceability") != argc || containsFlag(argc, argv, "-T") != argc;
+        file_traceability = full_traceability ||containsFlag(argc, argv, "--file-traceability") != argc || containsFlag(argc, argv, "-t") != argc;
+        output_type = (containsFlag(argc, argv, "--hex-output") != argc || containsFlag(argc, argv, "-H") != argc) ? 1 : 0;
+        if(containsFlag(argc, argv, "--concat-include") != argc || containsFlag(argc, argv, "-C") != argc){
+            if(output_type){
+                std::cerr << std::endl << "Hex-output mode and concat-include mode are mutually exclusives." << std::endl;
+                displayUsage(argv[0]);
+                return 1;
+            }
+            output_type = 2;
         }
-        output_type = 2;
+
+        i = 1;
+        while(((i = containsFlag(argc, argv, "--assembler-flags", i)) || (i = containsFlag(argc, argv, "-f", i))) && i != argc){ // Dat condition trick
+            dasm_flags = parseAssemblerFlags(argv[i], dasm_flags);
+        }
     }
 
-    i = 1;
-    while(((i = containsFlag(argc, argv, "--assembler-flags", i)) || (i = containsFlag(argc, argv, "-f", i))) && i != 0 && i != argc){ // Dat condition trick
-        dasm_flags = parseAssemblerFlags(argv[i], dasm_flags);
-    }
-
-    if((i = containsFlag(argc, argv, "-o", 1)) > 1) {
+    if((i = containsFlag(argc, argv, "-o", 1)) != argc) {
         i++;
         if(i >= argc){
             std::cerr << std::endl << "Please enter a output_file name after the flag \"-o\"." << std::endl;
@@ -76,7 +77,7 @@ char parseAssemblerFlags(std::string arg, char current_flags){
     std::list<std::string> flags;
     DAsm::splitString(arg, "[^A-Z]+", flags);
     for(auto flag : flags){
-        std::cerr << "Flag: \"" << flag << "\"" << std::endl;
+        //std::cerr << "Flag: \"" << flag << "\"" << std::endl;
         if(flag == "IGNORELABELCASE"){
             current_flags |= 0x01;
             continue;
@@ -133,7 +134,7 @@ int containsFlag(int argc, char** argv, std::string flag, unsigned int starting_
             }
         }
     }
-    return 0;
+    return argc;
 }
 
 void displayUsage(char* name){
