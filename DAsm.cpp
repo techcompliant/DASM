@@ -22,7 +22,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace DAsm{
 
     std::string trimWS(std::string& s){
-        std::string ws = " \t";
+        std::string ws = " \t\n\r";
         s.erase(0, s.find_first_not_of(ws));
         s.erase(s.find_last_not_of(ws)+1);
         return s;
@@ -83,7 +83,11 @@ namespace DAsm{
     }
 
     //Search/replace by regex
-    std::string replaceString(std::string source, std::string searchRegex, std::string replaceStr){
+    std::string replaceString(std::string source, std::string searchRegex,
+                              std::string replaceStr, bool format = true){
+        if(!format){
+            replaceStr = replaceString(replaceStr, "\\$","$$$$", true);
+        }
         std::regex searchReg(searchRegex);
         return std::string(std::regex_replace(source, searchReg, replaceStr));
     }
@@ -154,6 +158,7 @@ namespace DAsm{
     //Parses the A or B argument of an instruction
     word    Instruction::ParseArg(std::string source, bool isA){
         source = replaceString(source, "-","+-");
+
         trimWS(source);
 
         bool dereference = false;
@@ -171,6 +176,7 @@ namespace DAsm{
 
         //Split into "parts" based on +, eg "A + label + 1" would be three parts
         std::list<std::string> parts;
+
         splitString(source, "\\+", parts);
 
         word ret_word = 0xFFFF;
@@ -185,10 +191,32 @@ namespace DAsm{
             trimWS(s);
 
         for(auto s = parts.begin();s!=parts.end();s++){
-            if(mProgram->IsMacro(*s)){
+            std::list<std::string> space_parts;
+            splitString(*s,"(\\s|\\t)+",space_parts);
+            std::string first_bit = space_parts.front();
+            space_parts.pop_front();
+            if(mProgram->IsMacro(first_bit)){
                 std::list<std::string> rest;
-                std::copy(s,parts.end(), std::back_inserter(rest));
-                *s = mProgram->DoMacro(*s, rest);
+                std::copy(space_parts.begin(),space_parts.end(), std::back_inserter(rest));
+
+                *s = mProgram->DoMacro(first_bit, rest);
+                trimWS(*s);
+                if ((*s)[0] == '['){
+                    (*s).erase(remove((*s).begin(), (*s).end(), '['), (*s).end());
+                    (*s).erase(remove((*s).begin(), (*s).end(), ']'), (*s).end());
+
+                    dereference = true;
+                }
+                std::list<std::string> plus_parts;
+                splitString(*s, "\\+", plus_parts);
+                *s = plus_parts.front();
+                trimWS(*s);
+                auto ins = std::next(s,1);
+                plus_parts.pop_front();
+                for(auto && p : plus_parts){
+                    trimWS(p);
+                    parts.insert(ins, p);
+                }
             }
         }
 
@@ -388,9 +416,6 @@ namespace DAsm{
             }
             comma_split_list.pop_front();
 
-            for(auto&& i : comma_split_list)//Cleanup any stray spaces
-                i.erase(remove_if(i.begin(), i.end(),
-                                  [](char x){return std::isspace(x,std::locale());}), i.end());
 
             copy_if(comma_split_list.begin(), comma_split_list.end(),
                     back_inserter(final_split_list),
@@ -407,6 +432,8 @@ namespace DAsm{
         }
 
         if(final_split_list.size()==0)return;
+
+
 
         std::string first_str = *final_split_list.begin();
         first_str.erase(remove_if(first_str.begin(), first_str.end(),
@@ -774,6 +801,7 @@ namespace DAsm{
         AddMacro("RET=SET PC, POP");
         AddMacro(".asciiz = dat %0, 0");
         AddMacro(".reserve = fill 0, %0");
+        AddMacro("PICK =[SP + %0]");
     }
 
 
@@ -908,7 +936,6 @@ namespace DAsm{
 
         unsigned int i = 0;
         for(auto&& a : args){
-            a = regexEscape(a);
             trimWS(a);
             std::string argNumStr = std::to_string(i++);
             if(out.find(std::string("%e").append(argNumStr))!= std::string::npos){
@@ -919,7 +946,7 @@ namespace DAsm{
                     continue;
                 }
             }
-            out = replaceString(out, std::string("%").append(argNumStr), a);
+            out = replaceString(out, std::string("%").append(argNumStr), a,false);
         }
         return out;
     }
@@ -947,7 +974,6 @@ namespace DAsm{
             return 0;
 
         trimWS(expression);
-
         //Check for character literals
 
         if(expression.size()==3)

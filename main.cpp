@@ -15,7 +15,7 @@ FLAG ARRANGECHUNKS, 1\n\
 org 1024\n\
 :test_label_org\n\
 dat 0xFAFA\n\
-dat test_label_org\n\
+SET A, 'A'\n\
 .reserve 10\n\
 dat \"Test\",0\n\
 .asciiz \"Test\"\n\
@@ -43,6 +43,7 @@ dat no_comma_define\n\
 ;Using OOPS would cause a max recursion error\n\
 OPCODE MYOPCODE  , 0x1F, A\n\
 MYOPCODE A\n\
+SET A, PICK 2\n\
 org 0\n\
  SET   A, device_loop  -  table_loop\n\
 ;Generic code to find devices specified in lookup table:\n\
