@@ -1,0 +1,7 @@
+# Ignore built files
+
+dasm
+demo
+*.o
+*exe
+*.dll
